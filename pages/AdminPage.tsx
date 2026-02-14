@@ -47,9 +47,9 @@ const AdminPage: React.FC = () => {
   };
 
   const handleCloudPublish = async () => {
-    setSyncStatus("Broadcasting to all devices...");
+    setSyncStatus("Broadcasting update to everyone...");
     await publishToCloud();
-    setSyncStatus("Successfully updated all village devices! ✅");
+    setSyncStatus("Village successfully updated! ✅");
     setTimeout(() => setSyncStatus(null), 3000);
   };
 
@@ -57,7 +57,7 @@ const AdminPage: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (gallery.length >= 40) {
-      setAdminError("Gallery limit reached.");
+      setAdminError("Gallery limit of 40 reached.");
       return;
     }
     const reader = new FileReader();
@@ -73,26 +73,15 @@ const AdminPage: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleReviewAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => setNewReview({ ...newReview, avatarUrl: reader.result as string });
-    reader.readAsDataURL(file);
-  };
-
   if (!isLoggedIn) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
-        <div className="bg-white p-6 md:p-10 rounded-[40px] shadow-2xl border border-[#88AB8E]/10 w-full max-w-md">
-          <div className="flex flex-col items-center mb-10 text-center">
-            <div className="bg-[#88AB8E] text-white p-3 rounded-2xl mb-4">
+        <div className="bg-white p-6 md:p-10 rounded-[40px] shadow-2xl border border-[#88AB8E]/10 w-full max-w-md text-center">
+            <div className="bg-[#88AB8E] text-white p-3 rounded-2xl mb-4 inline-block">
               <ShieldCheck size={32} />
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold text-black">Admin Access</h1>
-            <p className="text-black/40 text-sm mt-2">Manage Badapathuria Portal</p>
-          </div>
-          <form onSubmit={handleLogin} className="space-y-6">
+            <h1 className="text-2xl md:text-3xl font-bold text-black mb-10">Admin Login</h1>
+          <form onSubmit={handleLogin} className="space-y-6 text-left">
             <div className="space-y-2">
               <label className="text-sm font-bold text-black/70 ml-1">Email</label>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-5 py-4 bg-[#F9F8F4] border-none rounded-2xl focus:ring-2 focus:ring-[#88AB8E]/20" placeholder="admin@gmail.com" required />
@@ -113,8 +102,8 @@ const AdminPage: React.FC = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-black">Admin Dashboard</h1>
-          <p className="text-black/60 mt-1">Village Cloud Control Active</p>
+          <h1 className="text-3xl md:text-4xl font-bold text-black">Admin Panel</h1>
+          <p className="text-black/60 mt-1">Village Cloud Controls</p>
         </div>
         <div className="flex gap-3">
           <button 
@@ -123,7 +112,7 @@ const AdminPage: React.FC = () => {
             className="bg-[#88AB8E] text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-[#6B8A7A] transition-all flex items-center gap-2 shadow-lg shadow-[#88AB8E]/20"
           >
              {isSyncing ? <Loader2 className="animate-spin" size={18} /> : <Globe size={18} />} 
-             Publish to Village
+             Publish Updates
           </button>
           <button onClick={() => setIsLoggedIn(false)} className="bg-black text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-[#333] flex items-center gap-2">
              <LogOut size={18} /> Logout
@@ -134,7 +123,7 @@ const AdminPage: React.FC = () => {
       <div className="flex overflow-x-auto pb-4 mb-10 gap-2 border-b border-gray-100 custom-scrollbar whitespace-nowrap">
         {[
           { id: 'dash', label: 'Overview', icon: <LayoutDashboard size={18} /> },
-          { id: 'sync', label: 'Cloud Sync', icon: <RefreshCw size={18} /> },
+          { id: 'sync', label: 'Cloud Status', icon: <RefreshCw size={18} /> },
           { id: 'home', label: 'Home Page', icon: <HomeIcon size={18} /> },
           { id: 'notices', label: 'Notices', icon: <FileText size={18} /> },
           { id: 'gallery', label: 'Gallery', icon: <Camera size={18} /> },
@@ -160,14 +149,21 @@ const AdminPage: React.FC = () => {
         </div>
       )}
 
+      {adminError && (
+        <div className="mb-6 bg-red-50 text-red-600 p-4 rounded-2xl flex items-center gap-3 border border-red-100">
+           <AlertCircle size={20} />
+           <span className="font-bold">{adminError}</span>
+        </div>
+      )}
+
       {activeTab === 'dash' && (
         <div className="space-y-12">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { label: 'Village Notices', value: notices.length, icon: <FileText className="text-green-500" /> },
-              { label: 'Directory Size', value: villagers.length, icon: <Users className="text-purple-500" /> },
-              { label: 'Gallery Photos', value: gallery.length, icon: <Camera className="text-yellow-500" /> },
-              { label: 'User Inquiries', value: complaints.length, icon: <MessageSquare className="text-blue-500" /> },
+              { label: 'Notices', value: notices.length, icon: <FileText className="text-green-500" /> },
+              { label: 'Residents', value: villagers.length, icon: <Users className="text-purple-500" /> },
+              { label: 'Photos', value: gallery.length, icon: <Camera className="text-yellow-500" /> },
+              { label: 'Inquiries', value: complaints.length, icon: <MessageSquare className="text-blue-500" /> },
             ].map((stat, i) => (
               <div key={i} className="bg-white p-6 rounded-3xl border border-[#88AB8E]/10 shadow-sm flex items-center gap-4">
                 <div className="p-4 bg-[#F9F8F4] rounded-2xl">{stat.icon}</div>
@@ -181,15 +177,17 @@ const AdminPage: React.FC = () => {
 
           <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/20 text-center">
             <Globe className="mx-auto mb-4 text-[#88AB8E]" size={48} />
-            <h3 className="text-2xl font-bold text-black mb-2">Push Changes to All Devices</h3>
-            <p className="text-black/50 mb-8 max-w-lg mx-auto">
-              You have made changes locally. To make these updates visible to every villager on their own phones, click the publish button.
+            <h3 className="text-2xl font-bold text-black mb-2">Sync Dashboard</h3>
+            <p className="text-black/50 mb-8 max-w-lg mx-auto italic">
+              "When you delete or add something, it happens locally first. Tap 'Publish Updates' to sync your changes to all other phones."
             </p>
             <button 
               onClick={handleCloudPublish}
-              className="bg-black text-white px-10 py-4 rounded-full font-bold hover:bg-gray-800 transition-all flex items-center gap-3 mx-auto"
+              disabled={isSyncing}
+              className="bg-black text-white px-10 py-4 rounded-full font-bold hover:bg-gray-800 transition-all flex items-center gap-3 mx-auto disabled:opacity-50"
             >
-               <Send size={18} /> Update All Village Devices
+               {isSyncing ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />} 
+               Sync All Changes to Cloud
             </button>
           </div>
         </div>
@@ -199,149 +197,152 @@ const AdminPage: React.FC = () => {
         <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10 max-w-2xl mx-auto">
           <div className="text-center mb-10">
             <RefreshCw className={`mx-auto mb-4 text-[#88AB8E] ${isSyncing ? 'animate-spin' : ''}`} size={48} />
-            <h3 className="text-2xl font-bold text-black">Cloud Sync Management</h3>
-            <p className="text-black/50 mt-2">Manage how your data is shared across the community.</p>
+            <h3 className="text-2xl font-bold text-black">Connection Settings</h3>
+            <p className="text-black/50 mt-2">Shared village storage management.</p>
           </div>
           
           <div className="space-y-6">
             <div className="p-6 bg-[#F9F8F4] rounded-3xl border border-[#88AB8E]/10">
               <div className="flex justify-between items-center mb-4">
-                <span className="text-sm font-bold text-black/70">Last Server Broadcast</span>
+                <span className="text-sm font-bold text-black/70">Last Synchronized</span>
                 <span className="text-xs font-bold text-[#88AB8E]">{lastSync || 'Never'}</span>
               </div>
               <div className="space-y-3">
                 <button 
                   onClick={pullFromCloud}
-                  className="w-full flex items-center justify-center gap-2 bg-white border border-[#88AB8E]/20 py-4 rounded-2xl font-bold text-sm hover:bg-white/80"
+                  className="w-full flex items-center justify-center gap-2 bg-white border border-[#88AB8E]/20 py-4 rounded-2xl font-bold text-sm hover:bg-gray-50"
                 >
-                  <RefreshCw size={18} /> Refresh from Server
+                  <RefreshCw size={18} /> Download from Cloud
                 </button>
                 <button 
                   onClick={handleCloudPublish}
                   className="w-full flex items-center justify-center gap-2 bg-[#88AB8E] text-white py-4 rounded-2xl font-bold text-sm hover:bg-[#6B8A7A]"
                 >
-                  <Globe size={18} /> Broadcast Local Data
+                  <Globe size={18} /> Upload Local Changes
                 </button>
               </div>
             </div>
             
-            <div className="p-6 bg-yellow-50 rounded-3xl border border-yellow-100 flex gap-4">
-               <AlertTriangle className="text-yellow-600 flex-shrink-0" size={24} />
-               <p className="text-xs text-yellow-700 leading-relaxed">
-                  <strong>Warning:</strong> Broadcasting will overwrite whatever is currently on the server. If other admins have made changes, make sure to "Refresh from Server" first to merge updates.
+            <div className="p-6 bg-red-50 rounded-3xl border border-red-100 flex gap-4">
+               <AlertTriangle className="text-red-600 flex-shrink-0" size={24} />
+               <p className="text-xs text-red-700 leading-relaxed">
+                  <strong>Database Maintenance:</strong> If you see "Too Large" errors, please delete 2-3 images from the Gallery tab and try publishing again. This clears up space on the shared cloud server.
                </p>
             </div>
           </div>
         </div>
       )}
 
-      {activeTab === 'home' && (
-        <div className="bg-white p-6 md:p-8 rounded-[40px] border border-[#88AB8E]/10 max-w-3xl mx-auto">
-          <h3 className="text-xl font-bold text-black mb-8 flex items-center gap-2"><HomeIcon size={20} /> Manage Home Page</h3>
-          <div className="space-y-6">
-             <div className="space-y-4">
-                <label className="text-sm font-bold text-black/70 ml-1">Hero Image URL</label>
-                <input type="text" value={tempHome.heroImageUrl} onChange={(e) => setTempHome({...tempHome, heroImageUrl: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" placeholder="https://..." />
-                <div className="flex gap-4">
-                   <button onClick={() => homeHeroFileInputRef.current?.click()} className="flex-1 border-2 border-dashed border-[#88AB8E]/30 py-4 rounded-2xl text-[#88AB8E] font-bold text-sm">Upload File</button>
-                   <input type="file" ref={homeHeroFileInputRef} className="hidden" accept="image/*" onChange={handleHomeHeroUpload} />
+      {activeTab === 'gallery' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+           <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10 h-fit">
+              <h3 className="text-xl font-bold text-black mb-6">Add Photo ({gallery.length}/40)</h3>
+              <div className="space-y-4">
+                 <input placeholder="Image Title" value={newImage.title} onChange={e => setNewImage({...newImage, title: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
+                 <button onClick={() => fileInputRef.current?.click()} className="w-full py-4 border-2 border-dashed border-[#88AB8E]/30 rounded-2xl text-[#88AB8E] font-bold text-sm">Select Image from Device</button>
+                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+                 {newImage.url && <img src={newImage.url} className="w-full h-32 object-cover rounded-2xl shadow-inner" />}
+                 <button onClick={() => { if (newImage.url && newImage.title) { addImage(newImage); setNewImage({ url: '', title: '', description: '' }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold shadow-lg">Save Locally</button>
+              </div>
+           </div>
+           <div className="grid grid-cols-2 gap-3 max-h-[600px] overflow-y-auto p-2 custom-scrollbar">
+              {gallery.map(img => (
+                <div key={img.id} className="relative aspect-video rounded-xl overflow-hidden border shadow-sm group">
+                   <img src={img.url} className="w-full h-full object-cover" />
+                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <button onClick={() => deleteImage(img.id)} className="bg-white text-red-500 p-2 rounded-full hover:scale-110 transition-transform">
+                      <Trash2 size={18} />
+                    </button>
+                   </div>
                 </div>
-             </div>
-             <div className="space-y-4">
-                <label className="text-sm font-bold text-black/70 ml-1">Welcome Heading</label>
-                <input type="text" value={tempHome.welcomeHeading} onChange={(e) => setTempHome({...tempHome, welcomeHeading: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
-                <label className="text-sm font-bold text-black/70 ml-1">Subheading</label>
-                <textarea value={tempHome.welcomeSubheading} onChange={(e) => setTempHome({...tempHome, welcomeSubheading: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl min-h-[100px]"></textarea>
-             </div>
-             <button onClick={() => { updateHomeConfig(tempHome); alert('Applied locally! Don\'t forget to Publish to Everyone.'); }} className="w-full bg-[#88AB8E] text-white py-5 rounded-2xl font-bold">Apply Locally</button>
-          </div>
+              ))}
+              {gallery.length === 0 && (
+                <div className="col-span-2 py-20 bg-gray-50 rounded-2xl text-center text-gray-400">No images to show.</div>
+              )}
+           </div>
         </div>
       )}
 
+      {/* Simplified views for other tabs to save space and keep logic consistent */}
       {activeTab === 'notices' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10">
-            <h3 className="text-xl font-bold text-black mb-6 flex items-center gap-2"><Plus size={20} /> Add Notice</h3>
+          <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10 h-fit">
+            <h3 className="text-xl font-bold text-black mb-6">New Notice</h3>
             <div className="space-y-4">
               <input placeholder="Title" value={newNotice.title} onChange={e => setNewNotice({...newNotice, title: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
               <select value={newNotice.category} onChange={e => setNewNotice({...newNotice, category: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl">
                 <option>Panchayat</option><option>Culture</option><option>Health</option><option>Emergency</option>
               </select>
-              <textarea placeholder="Content" value={newNotice.content} onChange={e => setNewNotice({...newNotice, content: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl min-h-[120px]"></textarea>
-              <button onClick={() => { if (newNotice.title) { addNotice(newNotice); setNewNotice({ title: '', category: 'Panchayat', content: '', date: new Date().toISOString().split('T')[0] }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold">Add Notice</button>
+              <textarea placeholder="Description" value={newNotice.content} onChange={e => setNewNotice({...newNotice, content: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl min-h-[120px]"></textarea>
+              <button onClick={() => { if (newNotice.title) { addNotice(newNotice); setNewNotice({ title: '', category: 'Panchayat', content: '', date: new Date().toISOString().split('T')[0] }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold">Add Local Notice</button>
             </div>
           </div>
-          <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar">
+          <div className="space-y-4 max-h-[600px] overflow-y-auto p-2">
             {notices.map(n => (
               <div key={n.id} className="bg-white p-6 rounded-3xl border border-gray-100 flex justify-between items-center shadow-sm">
                 <div><h4 className="font-bold text-black">{n.title}</h4><p className="text-xs text-black/40">{n.category}</p></div>
-                <button onClick={() => deleteNotice(n.id)} className="text-red-400 p-2"><Trash2 size={18} /></button>
+                <button onClick={() => deleteNotice(n.id)} className="text-red-400 p-2 hover:bg-red-50 rounded-xl transition-colors"><Trash2 size={18} /></button>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Other tabs remain largely the same, but they interact with the enhanced AppContext */}
       {activeTab === 'villagers' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10">
-            <h3 className="text-xl font-bold text-black mb-6">Register Resident</h3>
+          <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10 h-fit">
+            <h3 className="text-xl font-bold text-black mb-6">New Resident</h3>
             <div className="space-y-4">
               <input placeholder="Full Name" value={newVillager.name} onChange={e => setNewVillager({...newVillager, name: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
               <input placeholder="Occupation" value={newVillager.occupation} onChange={e => setNewVillager({...newVillager, occupation: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
-              <button onClick={() => { if (newVillager.name) { addVillager(newVillager); setNewVillager({ name: '', occupation: '', contact: '' }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold">Register</button>
+              <button onClick={() => { if (newVillager.name) { addVillager(newVillager); setNewVillager({ name: '', occupation: '', contact: '' }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold">Register locally</button>
             </div>
           </div>
-          <div className="space-y-2 max-h-[500px] overflow-y-auto">
+          <div className="space-y-2 max-h-[600px] overflow-y-auto">
             {villagers.map(v => (
               <div key={v.id} className="bg-white px-6 py-4 rounded-2xl border border-gray-100 flex justify-between items-center">
                 <div><div className="font-bold text-black">{v.name}</div><div className="text-xs text-black/40">{v.occupation}</div></div>
-                <button onClick={() => deleteVillager(v.id)} className="text-red-400 p-2"><Trash2 size={18} /></button>
+                <button onClick={() => deleteVillager(v.id)} className="text-red-400 p-2 hover:bg-red-50 rounded-xl transition-colors"><Trash2 size={18} /></button>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {activeTab === 'gallery' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-           <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10">
-              <h3 className="text-xl font-bold text-black mb-6">Gallery ({gallery.length}/40)</h3>
-              <div className="space-y-4">
-                 <input placeholder="Title" value={newImage.title} onChange={e => setNewImage({...newImage, title: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
-                 <button onClick={() => fileInputRef.current?.click()} className="w-full py-4 border-2 border-dashed border-[#88AB8E]/30 rounded-2xl text-[#88AB8E] font-bold">Select Image</button>
-                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
-                 {newImage.url && <img src={newImage.url} className="w-full h-32 object-cover rounded-2xl" />}
-                 <button onClick={() => { if (newImage.url && newImage.title) { addImage(newImage); setNewImage({ url: '', title: '', description: '' }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold">Save Locally</button>
-              </div>
-           </div>
-           <div className="grid grid-cols-2 gap-3 max-h-[500px] overflow-y-auto p-2">
-              {gallery.map(img => (
-                <div key={img.id} className="relative aspect-video rounded-xl overflow-hidden border">
-                   <img src={img.url} className="w-full h-full object-cover" />
-                   <button onClick={() => deleteImage(img.id)} className="absolute top-1 right-1 bg-black/50 text-white p-1 rounded-full"><Trash2 size={12} /></button>
-                </div>
-              ))}
-           </div>
+      {activeTab === 'home' && (
+        <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10 max-w-3xl mx-auto">
+          <h3 className="text-xl font-bold text-black mb-8 flex items-center gap-2"><HomeIcon size={20} /> Website Settings</h3>
+          <div className="space-y-6">
+             <div className="space-y-4">
+                <label className="text-sm font-bold text-black/70 ml-1">Banner Image URL</label>
+                <input type="text" value={tempHome.heroImageUrl} onChange={(e) => setTempHome({...tempHome, heroImageUrl: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
+             </div>
+             <div className="space-y-4">
+                <label className="text-sm font-bold text-black/70 ml-1">Hero Title</label>
+                <input type="text" value={tempHome.welcomeHeading} onChange={(e) => setTempHome({...tempHome, welcomeHeading: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
+                <label className="text-sm font-bold text-black/70 ml-1">Sub-title</label>
+                <textarea value={tempHome.welcomeSubheading} onChange={(e) => setTempHome({...tempHome, welcomeSubheading: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl min-h-[100px]"></textarea>
+             </div>
+             <button onClick={() => { updateHomeConfig(tempHome); alert('Settings updated locally! Remember to PUBLISH to sync.'); }} className="w-full bg-[#88AB8E] text-white py-5 rounded-2xl font-bold">Apply Changes Locally</button>
+          </div>
         </div>
       )}
 
       {activeTab === 'reviews' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10">
-            <h3 className="text-xl font-bold text-black mb-6">Add Review</h3>
+          <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10 h-fit">
+            <h3 className="text-xl font-bold text-black mb-6">Village Feedback</h3>
             <div className="space-y-4">
               <input placeholder="Name" value={newReview.name} onChange={e => setNewReview({...newReview, name: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
-              <textarea placeholder="Comment" value={newReview.content} onChange={e => setNewReview({...newReview, content: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl min-h-[100px]"></textarea>
-              <button onClick={() => { if (newReview.name && newReview.content) { addReview(newReview); setNewReview({ name: '', content: '', rating: 5, avatarUrl: 'https://i.pravatar.cc/150' }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold">Publish Review</button>
+              <textarea placeholder="What did they say?" value={newReview.content} onChange={e => setNewReview({...newReview, content: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl min-h-[100px]"></textarea>
+              <button onClick={() => { if (newReview.name && newReview.content) { addReview(newReview); setNewReview({ name: '', content: '', rating: 5, avatarUrl: 'https://i.pravatar.cc/150' }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold">Add Feedback</button>
             </div>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[600px] overflow-y-auto">
             {reviews.map(r => (
               <div key={r.id} className="bg-white p-4 rounded-2xl border border-gray-100 flex justify-between items-start">
-                <div><h4 className="font-bold text-black text-sm">{r.name}</h4><p className="text-xs text-black/60 italic">"{r.content}"</p></div>
-                <button onClick={() => deleteReview(r.id)} className="text-red-400 p-2"><Trash2 size={16} /></button>
+                <div><h4 className="font-bold text-black text-sm">{r.name}</h4><p className="text-xs text-black/60 italic leading-relaxed">"{r.content}"</p></div>
+                <button onClick={() => deleteReview(r.id)} className="text-red-400 p-2 hover:bg-red-50 rounded-xl transition-colors flex-shrink-0"><Trash2 size={16} /></button>
               </div>
             ))}
           </div>
