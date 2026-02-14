@@ -34,8 +34,6 @@ const AdminPage: React.FC = () => {
   const [isCompressing, setIsCompressing] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const homeHeroFileInputRef = useRef<HTMLInputElement>(null);
-  const reviewAvatarInputRef = useRef<HTMLInputElement>(null);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,12 +55,15 @@ const AdminPage: React.FC = () => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (gallery.length >= 40) {
-      setAdminError("Gallery limit of 40 reached.");
+    if (gallery.length >= 20) {
+      setAdminError("Cloud limit reached (Max 20 photos). Delete some first.");
       return;
     }
     const reader = new FileReader();
-    reader.onloadend = () => setNewImage({ ...newImage, url: reader.result as string });
+    reader.onloadend = () => {
+      setNewImage({ ...newImage, url: reader.result as string });
+      setAdminError(null);
+    };
     reader.readAsDataURL(file);
   };
 
@@ -74,18 +75,8 @@ const AdminPage: React.FC = () => {
       if (success) {
         setNewImage({ url: '', title: '', description: '' });
         setAdminError(null);
-      } else {
-        setAdminError("Gallery is full.");
       }
     }
-  };
-
-  const handleHomeHeroUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => setTempHome({ ...tempHome, heroImageUrl: reader.result as string });
-    reader.readAsDataURL(file);
   };
 
   if (!isLoggedIn) {
@@ -118,7 +109,7 @@ const AdminPage: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
         <div>
           <h1 className="text-3xl md:text-4xl font-bold text-black">Admin Panel</h1>
-          <p className="text-black/60 mt-1">Village Cloud Controls</p>
+          <p className="text-black/60 mt-1">Village Cloud Sync Active</p>
         </div>
         <div className="flex gap-3">
           <button 
@@ -138,12 +129,11 @@ const AdminPage: React.FC = () => {
       <div className="flex overflow-x-auto pb-4 mb-10 gap-2 border-b border-gray-100 custom-scrollbar whitespace-nowrap">
         {[
           { id: 'dash', label: 'Overview', icon: <LayoutDashboard size={18} /> },
-          { id: 'sync', label: 'Cloud Status', icon: <RefreshCw size={18} /> },
           { id: 'home', label: 'Home Page', icon: <HomeIcon size={18} /> },
-          { id: 'notices', label: 'Notices', icon: <FileText size={18} /> },
-          { id: 'gallery', label: 'Gallery', icon: <Camera size={18} /> },
-          { id: 'villagers', label: 'Directory', icon: <Users size={18} /> },
-          { id: 'reviews', label: 'Reviews', icon: <Star size={18} /> },
+          { id: 'notices', label: 'Notices Board', icon: <FileText size={18} /> },
+          { id: 'gallery', label: 'Village Photos', icon: <Camera size={18} /> },
+          { id: 'villagers', label: 'Resident Directory', icon: <Users size={18} /> },
+          { id: 'reviews', label: 'Feedback', icon: <Star size={18} /> },
         ].map(tab => (
           <button
             key={tab.id}
@@ -190,52 +180,23 @@ const AdminPage: React.FC = () => {
             ))}
           </div>
 
-          <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/20 text-center">
-            <Globe className="mx-auto mb-4 text-[#88AB8E]" size={48} />
-            <h3 className="text-2xl font-bold text-black mb-2">Sync Dashboard</h3>
-            <p className="text-black/50 mb-8 max-w-lg mx-auto italic">
-              "Note: Deleting locally is instant. To remove images from other phones too, click 'Publish Updates' below."
+          <div className="bg-[#88AB8E]/5 p-12 rounded-[50px] border border-[#88AB8E]/20 text-center">
+            <Globe className="mx-auto mb-6 text-[#88AB8E]" size={64} />
+            <h3 className="text-3xl font-bold text-black mb-4">Cloud Synchronization</h3>
+            <p className="text-black/50 mb-10 max-w-lg mx-auto leading-relaxed">
+              When you delete or add data, it saves to your phone first. <br />
+              <b>Tap the button below to update all other village phones.</b>
             </p>
             <button 
               onClick={handleCloudPublish}
               disabled={isSyncing}
-              className="bg-black text-white px-10 py-4 rounded-full font-bold hover:bg-gray-800 transition-all flex items-center gap-3 mx-auto disabled:opacity-50"
+              className="bg-black text-white px-12 py-5 rounded-full font-bold hover:bg-gray-800 transition-all flex items-center gap-4 mx-auto disabled:opacity-50 shadow-2xl"
             >
-               {isSyncing ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />} 
-               Publish All Changes to Cloud
+               {isSyncing ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />} 
+               Publish All Local Changes to Cloud
             </button>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'sync' && (
-        <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10 max-w-2xl mx-auto">
-          <div className="text-center mb-10">
-            <RefreshCw className={`mx-auto mb-4 text-[#88AB8E] ${isSyncing ? 'animate-spin' : ''}`} size={48} />
-            <h3 className="text-2xl font-bold text-black">Connection Settings</h3>
-            <p className="text-black/50 mt-2">Shared village storage management.</p>
-          </div>
-          
-          <div className="space-y-6">
-            <div className="p-6 bg-[#F9F8F4] rounded-3xl border border-[#88AB8E]/10">
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-sm font-bold text-black/70">Last Synchronized</span>
-                <span className="text-xs font-bold text-[#88AB8E]">{lastSync || 'Never'}</span>
-              </div>
-              <div className="space-y-3">
-                <button 
-                  onClick={pullFromCloud}
-                  className="w-full flex items-center justify-center gap-2 bg-white border border-[#88AB8E]/20 py-4 rounded-2xl font-bold text-sm hover:bg-gray-50"
-                >
-                  <RefreshCw size={18} /> Refresh from Cloud
-                </button>
-                <button 
-                  onClick={handleCloudPublish}
-                  className="w-full flex items-center justify-center gap-2 bg-[#88AB8E] text-white py-4 rounded-2xl font-bold text-sm hover:bg-[#6B8A7A]"
-                >
-                  <Globe size={18} /> Upload Local Changes
-                </button>
-              </div>
+            <div className="mt-6 flex items-center justify-center gap-2 text-xs font-bold text-[#88AB8E]">
+              <Clock size={14} /> Last Update: {lastSync || 'Never'}
             </div>
           </div>
         </div>
@@ -244,45 +205,58 @@ const AdminPage: React.FC = () => {
       {activeTab === 'gallery' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
            <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10 h-fit">
-              <h3 className="text-xl font-bold text-black mb-6">Add Photo ({gallery.length}/40)</h3>
+              <h3 className="text-xl font-bold text-black mb-6">Add New Photo ({gallery.length}/15)</h3>
+              <p className="text-xs text-black/40 mb-4">Photos are resized to 320px for fast community sharing.</p>
               <div className="space-y-4">
-                 <input placeholder="Image Title" value={newImage.title} onChange={e => setNewImage({...newImage, title: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
-                 <button onClick={() => fileInputRef.current?.click()} className="w-full py-4 border-2 border-dashed border-[#88AB8E]/30 rounded-2xl text-[#88AB8E] font-bold text-sm">Select Image from Device</button>
+                 <input placeholder="Short Title (e.g. Village Fair)" value={newImage.title} onChange={e => setNewImage({...newImage, title: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
+                 <button onClick={() => fileInputRef.current?.click()} className="w-full py-4 border-2 border-dashed border-[#88AB8E]/30 rounded-2xl text-[#88AB8E] font-bold text-sm hover:bg-[#88AB8E]/5 transition-colors">Select from Phone</button>
                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+                 
                  {newImage.url && (
-                   <div className="relative">
-                     <img src={newImage.url} className="w-full h-32 object-cover rounded-2xl shadow-inner" />
+                   <div className="relative border-4 border-[#88AB8E]/10 rounded-2xl overflow-hidden">
+                     <img src={newImage.url} className="w-full h-40 object-cover" />
                      {isCompressing && (
-                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-2xl">
-                          <Loader2 className="animate-spin text-white" />
+                       <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white text-xs font-bold">
+                          <Loader2 className="animate-spin mb-2" /> Optimizing Image...
                        </div>
                      )}
                    </div>
                  )}
+                 
                  <button 
-                  disabled={isCompressing || !newImage.url}
+                  disabled={isCompressing || !newImage.url || !newImage.title}
                   onClick={handleAddGalleryImage} 
-                  className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold shadow-lg disabled:opacity-50"
+                  className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold shadow-lg disabled:opacity-50 active:scale-95 transition-all"
                 >
-                  {isCompressing ? "Compressing..." : "Save Locally"}
+                  {isCompressing ? "Compressing..." : "Save to My Device"}
                 </button>
-                <p className="text-[10px] text-black/40 text-center italic mt-2">Images are auto-resized for cloud storage.</p>
               </div>
            </div>
-           <div className="grid grid-cols-2 gap-3 max-h-[600px] overflow-y-auto p-2 custom-scrollbar">
-              {gallery.map(img => (
-                <div key={img.id} className="relative aspect-video rounded-xl overflow-hidden border shadow-sm group">
-                   <img src={img.url} className="w-full h-full object-cover" />
-                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <button onClick={() => { deleteImage(img.id); }} className="bg-white text-red-500 p-2 rounded-full hover:scale-110 transition-transform">
-                      <Trash2 size={18} />
-                    </button>
-                   </div>
-                </div>
-              ))}
-              {gallery.length === 0 && (
-                <div className="col-span-2 py-20 bg-gray-50 rounded-2xl text-center text-gray-400">No images to show.</div>
-              )}
+           
+           <div className="bg-white p-6 rounded-[40px] border border-[#88AB8E]/10 h-fit">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-black">Current Gallery</h3>
+                <span className="text-xs font-bold text-black/30">Drag down to see more</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 max-h-[600px] overflow-y-auto p-1 custom-scrollbar">
+                {gallery.map(img => (
+                  <div key={img.id} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-transparent hover:border-[#88AB8E] transition-all shadow-sm group">
+                    <img src={img.url} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <button 
+                        onClick={() => { deleteImage(img.id); }} 
+                        className="bg-white text-red-500 p-3 rounded-full hover:scale-110 active:scale-90 transition-all shadow-xl"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {gallery.length === 0 && (
+                  <div className="col-span-2 py-20 text-center text-gray-400 font-bold bg-[#F9F8F4] rounded-3xl">No images found.</div>
+                )}
+              </div>
+              <p className="text-[10px] text-red-500/60 mt-4 text-center italic">Important: After deleting, you must click "Publish Updates" at the top to remove it from everyone's phones.</p>
            </div>
         </div>
       )}
@@ -290,23 +264,29 @@ const AdminPage: React.FC = () => {
       {activeTab === 'notices' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10 h-fit">
-            <h3 className="text-xl font-bold text-black mb-6">New Notice</h3>
+            <h3 className="text-xl font-bold text-black mb-6">Post New Notice</h3>
             <div className="space-y-4">
-              <input placeholder="Title" value={newNotice.title} onChange={e => setNewNotice({...newNotice, title: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
+              <input placeholder="Notice Title" value={newNotice.title} onChange={e => setNewNotice({...newNotice, title: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
               <select value={newNotice.category} onChange={e => setNewNotice({...newNotice, category: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl">
                 <option>Panchayat</option><option>Culture</option><option>Health</option><option>Emergency</option>
               </select>
-              <textarea placeholder="Description" value={newNotice.content} onChange={e => setNewNotice({...newNotice, content: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl min-h-[120px]"></textarea>
-              <button onClick={() => { if (newNotice.title) { addNotice(newNotice); setNewNotice({ title: '', category: 'Panchayat', content: '', date: new Date().toISOString().split('T')[0] }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold">Add Local Notice</button>
+              <textarea placeholder="Notice details..." value={newNotice.content} onChange={e => setNewNotice({...newNotice, content: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl min-h-[120px]"></textarea>
+              <button onClick={() => { if (newNotice.title) { addNotice(newNotice); setNewNotice({ title: '', category: 'Panchayat', content: '', date: new Date().toISOString().split('T')[0] }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold shadow-lg">Save Notice Locally</button>
             </div>
           </div>
-          <div className="space-y-4 max-h-[600px] overflow-y-auto p-2">
-            {notices.map(n => (
-              <div key={n.id} className="bg-white p-6 rounded-3xl border border-gray-100 flex justify-between items-center shadow-sm">
-                <div><h4 className="font-bold text-black">{n.title}</h4><p className="text-xs text-black/40">{n.category}</p></div>
-                <button onClick={() => deleteNotice(n.id)} className="text-red-400 p-2 hover:bg-red-50 rounded-xl transition-colors"><Trash2 size={18} /></button>
-              </div>
-            ))}
+          <div className="bg-white p-6 rounded-[40px] border border-[#88AB8E]/10 h-fit">
+            <h3 className="text-xl font-bold text-black mb-6">Existing Board</h3>
+            <div className="space-y-4 max-h-[500px] overflow-y-auto p-1 custom-scrollbar">
+              {notices.map(n => (
+                <div key={n.id} className="bg-[#F9F8F4] p-5 rounded-3xl border border-gray-100 flex justify-between items-center shadow-sm">
+                  <div>
+                    <h4 className="font-bold text-black text-sm">{n.title}</h4>
+                    <p className="text-[10px] text-black/40 font-bold uppercase tracking-widest">{n.category} • {n.date}</p>
+                  </div>
+                  <button onClick={() => deleteNotice(n.id)} className="text-red-400 p-2 hover:bg-red-50 rounded-xl transition-colors"><Trash2 size={18} /></button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -314,39 +294,38 @@ const AdminPage: React.FC = () => {
       {activeTab === 'villagers' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10 h-fit">
-            <h3 className="text-xl font-bold text-black mb-6">New Resident</h3>
+            <h3 className="text-xl font-bold text-black mb-6">Register Resident</h3>
             <div className="space-y-4">
               <input placeholder="Full Name" value={newVillager.name} onChange={e => setNewVillager({...newVillager, name: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
               <input placeholder="Occupation" value={newVillager.occupation} onChange={e => setNewVillager({...newVillager, occupation: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
-              <button onClick={() => { if (newVillager.name) { addVillager(newVillager); setNewVillager({ name: '', occupation: '', contact: '' }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold">Register locally</button>
+              <button onClick={() => { if (newVillager.name) { addVillager(newVillager); setNewVillager({ name: '', occupation: '', contact: '' }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold">Add to Directory</button>
             </div>
           </div>
-          <div className="space-y-2 max-h-[600px] overflow-y-auto">
-            {villagers.map(v => (
-              <div key={v.id} className="bg-white px-6 py-4 rounded-2xl border border-gray-100 flex justify-between items-center">
-                <div><div className="font-bold text-black">{v.name}</div><div className="text-xs text-black/40">{v.occupation}</div></div>
-                <button onClick={() => deleteVillager(v.id)} className="text-red-400 p-2 hover:bg-red-50 rounded-xl transition-colors"><Trash2 size={18} /></button>
-              </div>
-            ))}
+          <div className="bg-white p-6 rounded-[40px] border border-[#88AB8E]/10 h-fit">
+            <h3 className="text-xl font-bold text-black mb-6">Directory List</h3>
+            <div className="space-y-2 max-h-[500px] overflow-y-auto custom-scrollbar p-1">
+              {villagers.map(v => (
+                <div key={v.id} className="bg-[#F9F8F4] px-6 py-4 rounded-2xl border border-gray-100 flex justify-between items-center">
+                  <div><div className="font-bold text-black text-sm">{v.name}</div><div className="text-[10px] text-black/40">{v.occupation}</div></div>
+                  <button onClick={() => deleteVillager(v.id)} className="text-red-400 p-2 hover:bg-red-50 rounded-xl transition-colors"><Trash2 size={18} /></button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
 
       {activeTab === 'home' && (
         <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10 max-w-3xl mx-auto">
-          <h3 className="text-xl font-bold text-black mb-8 flex items-center gap-2"><HomeIcon size={20} /> Website Settings</h3>
+          <h3 className="text-xl font-bold text-black mb-8 flex items-center gap-2"><HomeIcon size={20} /> Portal Content</h3>
           <div className="space-y-6">
              <div className="space-y-4">
-                <label className="text-sm font-bold text-black/70 ml-1">Banner Image URL</label>
-                <input type="text" value={tempHome.heroImageUrl} onChange={(e) => setTempHome({...tempHome, heroImageUrl: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
+                <label className="text-xs font-bold text-black/40 uppercase tracking-widest ml-1">Hero Title</label>
+                <input type="text" value={tempHome.welcomeHeading} onChange={(e) => setTempHome({...tempHome, welcomeHeading: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl font-bold" />
+                <label className="text-xs font-bold text-black/40 uppercase tracking-widest ml-1">Sub-heading Description</label>
+                <textarea value={tempHome.welcomeSubheading} onChange={(e) => setTempHome({...tempHome, welcomeSubheading: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl min-h-[100px] text-sm"></textarea>
              </div>
-             <div className="space-y-4">
-                <label className="text-sm font-bold text-black/70 ml-1">Hero Title</label>
-                <input type="text" value={tempHome.welcomeHeading} onChange={(e) => setTempHome({...tempHome, welcomeHeading: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
-                <label className="text-sm font-bold text-black/70 ml-1">Sub-title</label>
-                <textarea value={tempHome.welcomeSubheading} onChange={(e) => setTempHome({...tempHome, welcomeSubheading: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl min-h-[100px]"></textarea>
-             </div>
-             <button onClick={() => { updateHomeConfig(tempHome); alert('Settings updated locally! Remember to PUBLISH to sync.'); }} className="w-full bg-[#88AB8E] text-white py-5 rounded-2xl font-bold">Apply Changes Locally</button>
+             <button onClick={() => { updateHomeConfig(tempHome); alert('Applied locally! Click PUBLISH UPDATES to sync.'); }} className="w-full bg-[#88AB8E] text-white py-5 rounded-2xl font-bold shadow-lg">Save Settings Locally</button>
           </div>
         </div>
       )}
@@ -354,20 +333,23 @@ const AdminPage: React.FC = () => {
       {activeTab === 'reviews' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10 h-fit">
-            <h3 className="text-xl font-bold text-black mb-6">Village Feedback</h3>
+            <h3 className="text-xl font-bold text-black mb-6">Add Testimonial</h3>
             <div className="space-y-4">
-              <input placeholder="Name" value={newReview.name} onChange={e => setNewReview({...newReview, name: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
-              <textarea placeholder="What did they say?" value={newReview.content} onChange={e => setNewReview({...newReview, content: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl min-h-[100px]"></textarea>
+              <input placeholder="Resident Name" value={newReview.name} onChange={e => setNewReview({...newReview, name: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
+              <textarea placeholder="Their feedback..." value={newReview.content} onChange={e => setNewReview({...newReview, content: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl min-h-[100px] text-sm"></textarea>
               <button onClick={() => { if (newReview.name && newReview.content) { addReview(newReview); setNewReview({ name: '', content: '', rating: 5, avatarUrl: 'https://i.pravatar.cc/150' }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold">Add Feedback</button>
             </div>
           </div>
-          <div className="space-y-4 max-h-[600px] overflow-y-auto">
-            {reviews.map(r => (
-              <div key={r.id} className="bg-white p-4 rounded-2xl border border-gray-100 flex justify-between items-start">
-                <div><h4 className="font-bold text-black text-sm">{r.name}</h4><p className="text-xs text-black/60 italic leading-relaxed">"{r.content}"</p></div>
-                <button onClick={() => deleteReview(r.id)} className="text-red-400 p-2 hover:bg-red-50 rounded-xl transition-colors flex-shrink-0"><Trash2 size={16} /></button>
-              </div>
-            ))}
+          <div className="bg-white p-6 rounded-[40px] border border-[#88AB8E]/10 h-fit">
+            <h3 className="text-xl font-bold text-black mb-6">Recent Feedback</h3>
+            <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar p-1">
+              {reviews.map(r => (
+                <div key={r.id} className="bg-[#F9F8F4] p-4 rounded-3xl border border-gray-100 flex justify-between items-start">
+                  <div><h4 className="font-bold text-black text-sm">{r.name}</h4><p className="text-[10px] text-black/60 italic leading-relaxed">"{r.content}"</p></div>
+                  <button onClick={() => deleteReview(r.id)} className="text-red-400 p-2 hover:bg-red-50 rounded-xl transition-colors flex-shrink-0"><Trash2 size={16} /></button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
