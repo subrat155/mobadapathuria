@@ -31,6 +31,7 @@ const AdminPage: React.FC = () => {
   const [tempHome, setTempHome] = useState(homeConfig);
   const [adminError, setAdminError] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const homeHeroFileInputRef = useRef<HTMLInputElement>(null);
@@ -63,6 +64,20 @@ const AdminPage: React.FC = () => {
     const reader = new FileReader();
     reader.onloadend = () => setNewImage({ ...newImage, url: reader.result as string });
     reader.readAsDataURL(file);
+  };
+
+  const handleAddGalleryImage = async () => {
+    if (newImage.url && newImage.title) {
+      setIsCompressing(true);
+      const success = await addImage(newImage);
+      setIsCompressing(false);
+      if (success) {
+        setNewImage({ url: '', title: '', description: '' });
+        setAdminError(null);
+      } else {
+        setAdminError("Gallery is full.");
+      }
+    }
   };
 
   const handleHomeHeroUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -179,7 +194,7 @@ const AdminPage: React.FC = () => {
             <Globe className="mx-auto mb-4 text-[#88AB8E]" size={48} />
             <h3 className="text-2xl font-bold text-black mb-2">Sync Dashboard</h3>
             <p className="text-black/50 mb-8 max-w-lg mx-auto italic">
-              "When you delete or add something, it happens locally first. Tap 'Publish Updates' to sync your changes to all other phones."
+              "Note: Deleting locally is instant. To remove images from other phones too, click 'Publish Updates' below."
             </p>
             <button 
               onClick={handleCloudPublish}
@@ -187,7 +202,7 @@ const AdminPage: React.FC = () => {
               className="bg-black text-white px-10 py-4 rounded-full font-bold hover:bg-gray-800 transition-all flex items-center gap-3 mx-auto disabled:opacity-50"
             >
                {isSyncing ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />} 
-               Sync All Changes to Cloud
+               Publish All Changes to Cloud
             </button>
           </div>
         </div>
@@ -212,7 +227,7 @@ const AdminPage: React.FC = () => {
                   onClick={pullFromCloud}
                   className="w-full flex items-center justify-center gap-2 bg-white border border-[#88AB8E]/20 py-4 rounded-2xl font-bold text-sm hover:bg-gray-50"
                 >
-                  <RefreshCw size={18} /> Download from Cloud
+                  <RefreshCw size={18} /> Refresh from Cloud
                 </button>
                 <button 
                   onClick={handleCloudPublish}
@@ -221,13 +236,6 @@ const AdminPage: React.FC = () => {
                   <Globe size={18} /> Upload Local Changes
                 </button>
               </div>
-            </div>
-            
-            <div className="p-6 bg-red-50 rounded-3xl border border-red-100 flex gap-4">
-               <AlertTriangle className="text-red-600 flex-shrink-0" size={24} />
-               <p className="text-xs text-red-700 leading-relaxed">
-                  <strong>Database Maintenance:</strong> If you see "Too Large" errors, please delete 2-3 images from the Gallery tab and try publishing again. This clears up space on the shared cloud server.
-               </p>
             </div>
           </div>
         </div>
@@ -241,8 +249,24 @@ const AdminPage: React.FC = () => {
                  <input placeholder="Image Title" value={newImage.title} onChange={e => setNewImage({...newImage, title: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
                  <button onClick={() => fileInputRef.current?.click()} className="w-full py-4 border-2 border-dashed border-[#88AB8E]/30 rounded-2xl text-[#88AB8E] font-bold text-sm">Select Image from Device</button>
                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
-                 {newImage.url && <img src={newImage.url} className="w-full h-32 object-cover rounded-2xl shadow-inner" />}
-                 <button onClick={() => { if (newImage.url && newImage.title) { addImage(newImage); setNewImage({ url: '', title: '', description: '' }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold shadow-lg">Save Locally</button>
+                 {newImage.url && (
+                   <div className="relative">
+                     <img src={newImage.url} className="w-full h-32 object-cover rounded-2xl shadow-inner" />
+                     {isCompressing && (
+                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-2xl">
+                          <Loader2 className="animate-spin text-white" />
+                       </div>
+                     )}
+                   </div>
+                 )}
+                 <button 
+                  disabled={isCompressing || !newImage.url}
+                  onClick={handleAddGalleryImage} 
+                  className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold shadow-lg disabled:opacity-50"
+                >
+                  {isCompressing ? "Compressing..." : "Save Locally"}
+                </button>
+                <p className="text-[10px] text-black/40 text-center italic mt-2">Images are auto-resized for cloud storage.</p>
               </div>
            </div>
            <div className="grid grid-cols-2 gap-3 max-h-[600px] overflow-y-auto p-2 custom-scrollbar">
@@ -250,7 +274,7 @@ const AdminPage: React.FC = () => {
                 <div key={img.id} className="relative aspect-video rounded-xl overflow-hidden border shadow-sm group">
                    <img src={img.url} className="w-full h-full object-cover" />
                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <button onClick={() => deleteImage(img.id)} className="bg-white text-red-500 p-2 rounded-full hover:scale-110 transition-transform">
+                    <button onClick={() => { deleteImage(img.id); }} className="bg-white text-red-500 p-2 rounded-full hover:scale-110 transition-transform">
                       <Trash2 size={18} />
                     </button>
                    </div>
@@ -263,7 +287,6 @@ const AdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* Simplified views for other tabs to save space and keep logic consistent */}
       {activeTab === 'notices' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10 h-fit">
