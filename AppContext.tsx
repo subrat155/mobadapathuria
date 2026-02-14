@@ -22,7 +22,7 @@ interface AppContextType {
   deleteNotice: (id: string) => void;
   addVillager: (villager: Omit<Villager, 'id'>) => void;
   deleteVillager: (id: string) => void;
-  addImage: (image: Omit<GalleryImage, 'id'>) => boolean;
+  addImage: (image: Omit<GalleryImage, 'id'>) => Promise<boolean>;
   deleteImage: (id: string) => void;
   addReview: (review: Omit<Review, 'id'>) => void;
   deleteReview: (id: string) => void;
@@ -38,10 +38,42 @@ const INITIAL_REVIEWS: Review[] = [
   { id: '2', name: 'Meena Patra', content: 'Panchayat updates on this portal are very helpful.', rating: 4, avatarUrl: 'https://i.pravatar.cc/150?u=meena' }
 ];
 
-// SHARED CLOUD CONSTANTS - Split into segments to avoid "Too Large" errors
+// SHARED CLOUD CONSTANTS - Split keys to prevent "Too Large" errors
 const CLOUD_API_BASE = 'https://kvdb.io/A9zY6S9z8q5z2Xz1z7z_badapathuria/';
-const KEY_META = 'v1_metadata'; // Notices, Villagers, Reviews, HomeConfig
-const KEY_GALLERY = 'v1_gallery'; // Gallery list
+const KEY_META = 'v2_metadata'; // Notices, Villagers, Reviews, HomeConfig
+const KEY_GALLERY = 'v2_gallery'; // Gallery list
+
+// Helper to compress base64 images
+const compressImage = (base64Str: string, maxWidth = 600, maxHeight = 600): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height *= maxWidth / width;
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width *= maxHeight / height;
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0, width, height);
+      // Aggressive compression to fit in free KV storage
+      resolve(canvas.toDataURL('image/jpeg', 0.6));
+    };
+  });
+};
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -78,7 +110,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const pullFromCloud = useCallback(async () => {
     setIsSyncing(true);
     try {
-      // Pull Metadata (Small)
       const metaRes = await fetch(`${CLOUD_API_BASE}${KEY_META}`);
       if (metaRes.ok) {
         const data = await metaRes.json();
@@ -88,11 +119,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (data.homeConfig) setHomeConfig(data.homeConfig);
       }
       
-      // Pull Gallery (Large - separate request)
       const galleryRes = await fetch(`${CLOUD_API_BASE}${KEY_GALLERY}`);
       if (galleryRes.ok) {
         const data = await galleryRes.json();
-        if (data) setGallery(data);
+        if (data && Array.isArray(data)) setGallery(data);
       }
 
       const now = new Date().toLocaleString();
@@ -110,27 +140,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       // 1. Publish Metadata
       const metaPayload = { notices, villagers, reviews, homeConfig };
-      const metaRes = await fetch(`${CLOUD_API_BASE}${KEY_META}`, {
+      await fetch(`${CLOUD_API_BASE}${KEY_META}`, {
         method: 'PUT',
         body: JSON.stringify(metaPayload),
       });
 
-      if (!metaRes.ok) throw new Error("Meta Sync Failed");
-
-      // 2. Publish Gallery (This is the heavy one)
-      // If gallery is still too big, we notify the user
+      // 2. Publish Gallery (Last 20 images to ensure it fits in free storage)
+      const galleryToSync = gallery.slice(0, 20); 
       const galleryRes = await fetch(`${CLOUD_API_BASE}${KEY_GALLERY}`, {
         method: 'PUT',
-        body: JSON.stringify(gallery),
+        body: JSON.stringify(galleryToSync),
       });
 
-      if (!galleryRes.ok) throw new Error("Gallery Sync Failed - Too many images?");
+      if (!galleryRes.ok) throw new Error("Cloud rejected data - likely too large");
 
       const now = new Date().toLocaleString();
       setLastSync(now);
       localStorage.setItem('last_cloud_sync', now);
     } catch (e) {
-      alert("Notice: Some data might be too large for the free cloud storage. Try reducing the number of high-quality images in the gallery.");
+      alert("Error: Data is still too large. Please delete some images and try again. Each image must be small.");
     } finally {
       setIsSyncing(false);
     }
@@ -143,14 +171,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addVillager = (villager: Omit<Villager, 'id'>) => setVillagers(prev => [{ ...villager, id: Date.now().toString() }, ...prev]);
   const deleteVillager = (id: string) => setVillagers(prev => prev.filter(v => v.id !== id));
   
-  const addImage = (image: Omit<GalleryImage, 'id'>): boolean => {
+  const addImage = async (image: Omit<GalleryImage, 'id'>): Promise<boolean> => {
     if (gallery.length >= 40) return false;
-    setGallery(prev => [{ ...image, id: Date.now().toString() }, ...prev]);
+    
+    // Auto-compress before adding to state
+    const compressedUrl = await compressImage(image.url);
+    const newImage = { ...image, url: compressedUrl, id: Date.now().toString() };
+    
+    setGallery(prev => [newImage, ...prev]);
     return true;
   };
 
   const deleteImage = (id: string) => {
-    setGallery(prev => prev.filter(i => i.id !== id));
+    setGallery(prev => {
+      const newState = prev.filter(i => i.id !== id);
+      return newState;
+    });
   };
 
   const addReview = (review: Omit<Review, 'id'>) => setReviews(prev => [{ ...review, id: Date.now().toString() }, ...prev]);
