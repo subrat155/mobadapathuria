@@ -34,26 +34,14 @@ interface AppContextType {
 }
 
 const INITIAL_REVIEWS: Review[] = [
-  { 
-    id: '1', 
-    name: 'Suresh Chandra', 
-    content: 'The new solar lights in our street have made a huge difference. Safety has improved significantly for our children.', 
-    rating: 5, 
-    avatarUrl: 'https://i.pravatar.cc/150?u=suresh' 
-  },
-  { 
-    id: '2', 
-    name: 'Meena Patra', 
-    content: 'Panchayat updates on this portal are very helpful. I don\'t have to walk to the office anymore to check notices.', 
-    rating: 4, 
-    avatarUrl: 'https://i.pravatar.cc/150?u=meena' 
-  }
+  { id: '1', name: 'Suresh Chandra', content: 'The new solar lights in our street have made a huge difference.', rating: 5, avatarUrl: 'https://i.pravatar.cc/150?u=suresh' },
+  { id: '2', name: 'Meena Patra', content: 'Panchayat updates on this portal are very helpful.', rating: 4, avatarUrl: 'https://i.pravatar.cc/150?u=meena' }
 ];
 
-// SHARED CLOUD CONSTANTS
-// This unique ID links all devices together. 
-const CLOUD_STORAGE_KEY = 'badapathuria_portal_v1_main';
-const CLOUD_API_BASE = 'https://kvdb.io/A9zY6S9z8q5z2Xz1z7z_badapathuria/'; // Public shared bucket
+// SHARED CLOUD CONSTANTS - Split into segments to avoid "Too Large" errors
+const CLOUD_API_BASE = 'https://kvdb.io/A9zY6S9z8q5z2Xz1z7z_badapathuria/';
+const KEY_META = 'v1_metadata'; // Notices, Villagers, Reviews, HomeConfig
+const KEY_GALLERY = 'v1_gallery'; // Gallery list
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -62,9 +50,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const item = localStorage.getItem(key);
       return item ? JSON.parse(item) : fallback;
-    } catch (e) {
-      return fallback;
-    }
+    } catch (e) { return fallback; }
   };
 
   const [notices, setNotices] = useState<Notice[]>(() => safeJsonParse('village_notices', INITIAL_NOTICES));
@@ -80,41 +66,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(() => localStorage.getItem('last_cloud_sync'));
 
-  // Sync state to local storage whenever it changes
   useEffect(() => {
-    try {
-      localStorage.setItem('village_notices', JSON.stringify(notices));
-      localStorage.setItem('village_villagers', JSON.stringify(villagers));
-      localStorage.setItem('village_gallery', JSON.stringify(gallery));
-      localStorage.setItem('village_reviews', JSON.stringify(reviews));
-      localStorage.setItem('village_home_config', JSON.stringify(homeConfig));
-      localStorage.setItem('village_complaints', JSON.stringify(complaints));
-    } catch (e) {
-      console.error("Storage limit reached locally.");
-    }
+    localStorage.setItem('village_notices', JSON.stringify(notices));
+    localStorage.setItem('village_villagers', JSON.stringify(villagers));
+    localStorage.setItem('village_gallery', JSON.stringify(gallery));
+    localStorage.setItem('village_reviews', JSON.stringify(reviews));
+    localStorage.setItem('village_home_config', JSON.stringify(homeConfig));
+    localStorage.setItem('village_complaints', JSON.stringify(complaints));
   }, [notices, villagers, gallery, reviews, homeConfig, complaints]);
 
-  // CLOUD SYNC LOGIC
   const pullFromCloud = useCallback(async () => {
     setIsSyncing(true);
     try {
-      const response = await fetch(`${CLOUD_API_BASE}${CLOUD_STORAGE_KEY}`);
-      if (response.ok) {
-        const cloudData = await response.json();
-        if (cloudData) {
-          if (cloudData.notices) setNotices(cloudData.notices);
-          if (cloudData.villagers) setVillagers(cloudData.villagers);
-          if (cloudData.gallery) setGallery(cloudData.gallery);
-          if (cloudData.reviews) setReviews(cloudData.reviews);
-          if (cloudData.homeConfig) setHomeConfig(cloudData.homeConfig);
-          
-          const now = new Date().toLocaleString();
-          setLastSync(now);
-          localStorage.setItem('last_cloud_sync', now);
-        }
+      // Pull Metadata (Small)
+      const metaRes = await fetch(`${CLOUD_API_BASE}${KEY_META}`);
+      if (metaRes.ok) {
+        const data = await metaRes.json();
+        if (data.notices) setNotices(data.notices);
+        if (data.villagers) setVillagers(data.villagers);
+        if (data.reviews) setReviews(data.reviews);
+        if (data.homeConfig) setHomeConfig(data.homeConfig);
       }
+      
+      // Pull Gallery (Large - separate request)
+      const galleryRes = await fetch(`${CLOUD_API_BASE}${KEY_GALLERY}`);
+      if (galleryRes.ok) {
+        const data = await galleryRes.json();
+        if (data) setGallery(data);
+      }
+
+      const now = new Date().toLocaleString();
+      setLastSync(now);
+      localStorage.setItem('last_cloud_sync', now);
     } catch (e) {
-      console.warn("Cloud pull failed - device offline or server busy.");
+      console.warn("Sync failed - using local data.");
     } finally {
       setIsSyncing(false);
     }
@@ -123,38 +108,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const publishToCloud = async () => {
     setIsSyncing(true);
     try {
-      const payload = {
-        notices,
-        villagers,
-        gallery, // Note: large base64 might fail depending on server limits
-        reviews,
-        homeConfig,
-        timestamp: Date.now()
-      };
-
-      const response = await fetch(`${CLOUD_API_BASE}${CLOUD_STORAGE_KEY}`, {
+      // 1. Publish Metadata
+      const metaPayload = { notices, villagers, reviews, homeConfig };
+      const metaRes = await fetch(`${CLOUD_API_BASE}${KEY_META}`, {
         method: 'PUT',
-        body: JSON.stringify(payload),
+        body: JSON.stringify(metaPayload),
       });
 
-      if (response.ok) {
-        const now = new Date().toLocaleString();
-        setLastSync(now);
-        localStorage.setItem('last_cloud_sync', now);
-      } else {
-        throw new Error("Cloud push failed");
-      }
+      if (!metaRes.ok) throw new Error("Meta Sync Failed");
+
+      // 2. Publish Gallery (This is the heavy one)
+      // If gallery is still too big, we notify the user
+      const galleryRes = await fetch(`${CLOUD_API_BASE}${KEY_GALLERY}`, {
+        method: 'PUT',
+        body: JSON.stringify(gallery),
+      });
+
+      if (!galleryRes.ok) throw new Error("Gallery Sync Failed - Too many images?");
+
+      const now = new Date().toLocaleString();
+      setLastSync(now);
+      localStorage.setItem('last_cloud_sync', now);
     } catch (e) {
-      alert("Error syncing to everyone: Data too large for shared demo storage. Try removing some high-res images from gallery.");
+      alert("Notice: Some data might be too large for the free cloud storage. Try reducing the number of high-quality images in the gallery.");
     } finally {
       setIsSyncing(false);
     }
   };
 
-  // Initial Pull on Load
-  useEffect(() => {
-    pullFromCloud();
-  }, [pullFromCloud]);
+  useEffect(() => { pullFromCloud(); }, [pullFromCloud]);
 
   const addNotice = (notice: Omit<Notice, 'id'>) => setNotices(prev => [{ ...notice, id: Date.now().toString() }, ...prev]);
   const deleteNotice = (id: string) => setNotices(prev => prev.filter(n => n.id !== id));
@@ -167,7 +149,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
-  const deleteImage = (id: string) => setGallery(prev => prev.filter(i => i.id !== id));
+  const deleteImage = (id: string) => {
+    setGallery(prev => prev.filter(i => i.id !== id));
+  };
+
   const addReview = (review: Omit<Review, 'id'>) => setReviews(prev => [{ ...review, id: Date.now().toString() }, ...prev]);
   const deleteReview = (id: string) => setReviews(prev => prev.filter(r => r.id !== id));
   const updateHomeConfig = (config: HomeConfig) => setHomeConfig(config);
