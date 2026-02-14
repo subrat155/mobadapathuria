@@ -14,10 +14,10 @@ const AdminPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
-  const [activeTab, setActiveTab] = useState<'dash' | 'sync' | 'notices' | 'gallery' | 'villagers' | 'home' | 'reviews'>('dash');
+  const [activeTab, setActiveTab] = useState<'dash' | 'notices' | 'gallery' | 'villagers' | 'home' | 'reviews'>('dash');
 
   const { 
-    notices, villagers, gallery, complaints, homeConfig, reviews, isSyncing, lastSync,
+    notices, villagers, gallery, complaints, homeConfig, reviews, isSyncing, syncProgress, lastSync,
     addNotice, deleteNotice, addVillager, deleteVillager,
     addImage, deleteImage, updateHomeConfig, deleteComplaint,
     addReview, deleteReview, publishToCloud, pullFromCloud
@@ -46,17 +46,21 @@ const AdminPage: React.FC = () => {
   };
 
   const handleCloudPublish = async () => {
-    setSyncStatus("Broadcasting update to everyone...");
-    await publishToCloud();
-    setSyncStatus("Village successfully updated! ✅");
-    setTimeout(() => setSyncStatus(null), 3000);
+    setSyncStatus("Starting broadcast...");
+    try {
+      await publishToCloud();
+      setSyncStatus("Village successfully updated! ✅");
+      setTimeout(() => setSyncStatus(null), 3000);
+    } catch (err) {
+      setAdminError("Sync failed. Check connection.");
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (gallery.length >= 20) {
-      setAdminError("Cloud limit reached (Max 20 photos). Delete some first.");
+    if (gallery.length >= 30) {
+      setAdminError("Gallery limit of 30 reached.");
       return;
     }
     const reader = new FileReader();
@@ -109,13 +113,13 @@ const AdminPage: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
         <div>
           <h1 className="text-3xl md:text-4xl font-bold text-black">Admin Panel</h1>
-          <p className="text-black/60 mt-1">Village Cloud Sync Active</p>
+          <p className="text-black/60 mt-1">Village Cloud Sync Enabled</p>
         </div>
         <div className="flex gap-3">
           <button 
             onClick={handleCloudPublish}
             disabled={isSyncing}
-            className="bg-[#88AB8E] text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-[#6B8A7A] transition-all flex items-center gap-2 shadow-lg shadow-[#88AB8E]/20"
+            className="bg-[#88AB8E] text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-[#6B8A7A] transition-all flex items-center gap-2 shadow-lg shadow-[#88AB8E]/20 disabled:opacity-50"
           >
              {isSyncing ? <Loader2 className="animate-spin" size={18} /> : <Globe size={18} />} 
              Publish Updates
@@ -147,7 +151,14 @@ const AdminPage: React.FC = () => {
         ))}
       </div>
 
-      {syncStatus && (
+      {isSyncing && (
+        <div className="mb-6 bg-blue-500 text-white p-4 rounded-2xl flex items-center gap-3 animate-pulse">
+           <Loader2 className="animate-spin" size={20} />
+           <span className="font-bold">{syncProgress || "Connecting to village cloud..."}</span>
+        </div>
+      )}
+
+      {syncStatus && !isSyncing && (
         <div className="mb-6 bg-[#88AB8E] text-white p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top duration-300">
            <CheckCircle size={20} />
            <span className="font-bold">{syncStatus}</span>
@@ -184,18 +195,28 @@ const AdminPage: React.FC = () => {
             <Globe className="mx-auto mb-6 text-[#88AB8E]" size={64} />
             <h3 className="text-3xl font-bold text-black mb-4">Cloud Synchronization</h3>
             <p className="text-black/50 mb-10 max-w-lg mx-auto leading-relaxed">
-              When you delete or add data, it saves to your phone first. <br />
-              <b>Tap the button below to update all other village phones.</b>
+              When you add or delete items, they save to this device only. <br />
+              <b>Tap "Broadcast Changes" to update every phone in the village.</b>
             </p>
-            <button 
-              onClick={handleCloudPublish}
-              disabled={isSyncing}
-              className="bg-black text-white px-12 py-5 rounded-full font-bold hover:bg-gray-800 transition-all flex items-center gap-4 mx-auto disabled:opacity-50 shadow-2xl"
-            >
-               {isSyncing ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />} 
-               Publish All Local Changes to Cloud
-            </button>
-            <div className="mt-6 flex items-center justify-center gap-2 text-xs font-bold text-[#88AB8E]">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <button 
+                onClick={handleCloudPublish}
+                disabled={isSyncing}
+                className="bg-black text-white px-12 py-5 rounded-full font-bold hover:bg-gray-800 transition-all flex items-center gap-4 disabled:opacity-50 shadow-2xl"
+              >
+                 {isSyncing ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />} 
+                 Broadcast All Changes
+              </button>
+              <button 
+                onClick={pullFromCloud}
+                disabled={isSyncing}
+                className="bg-white text-black border border-black px-12 py-5 rounded-full font-bold hover:bg-gray-50 transition-all flex items-center gap-4 disabled:opacity-50"
+              >
+                 <RefreshCw size={20} className={isSyncing ? 'animate-spin' : ''} /> 
+                 Refresh from Cloud
+              </button>
+            </div>
+            <div className="mt-8 flex items-center justify-center gap-2 text-xs font-bold text-[#88AB8E]">
               <Clock size={14} /> Last Update: {lastSync || 'Never'}
             </div>
           </div>
@@ -205,11 +226,11 @@ const AdminPage: React.FC = () => {
       {activeTab === 'gallery' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
            <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10 h-fit">
-              <h3 className="text-xl font-bold text-black mb-6">Add New Photo ({gallery.length}/15)</h3>
-              <p className="text-xs text-black/40 mb-4">Photos are resized to 320px for fast community sharing.</p>
+              <h3 className="text-xl font-bold text-black mb-6">Add New Photo ({gallery.length}/30)</h3>
+              <p className="text-xs text-black/40 mb-4">Images are automatically resized to fit cloud storage.</p>
               <div className="space-y-4">
-                 <input placeholder="Short Title (e.g. Village Fair)" value={newImage.title} onChange={e => setNewImage({...newImage, title: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
-                 <button onClick={() => fileInputRef.current?.click()} className="w-full py-4 border-2 border-dashed border-[#88AB8E]/30 rounded-2xl text-[#88AB8E] font-bold text-sm hover:bg-[#88AB8E]/5 transition-colors">Select from Phone</button>
+                 <input placeholder="Short Title" value={newImage.title} onChange={e => setNewImage({...newImage, title: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
+                 <button onClick={() => fileInputRef.current?.click()} className="w-full py-4 border-2 border-dashed border-[#88AB8E]/30 rounded-2xl text-[#88AB8E] font-bold text-sm hover:bg-[#88AB8E]/5 transition-colors">Select Image</button>
                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
                  
                  {newImage.url && (
@@ -217,7 +238,7 @@ const AdminPage: React.FC = () => {
                      <img src={newImage.url} className="w-full h-40 object-cover" />
                      {isCompressing && (
                        <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white text-xs font-bold">
-                          <Loader2 className="animate-spin mb-2" /> Optimizing Image...
+                          <Loader2 className="animate-spin mb-2" /> Optimizing...
                        </div>
                      )}
                    </div>
@@ -228,15 +249,14 @@ const AdminPage: React.FC = () => {
                   onClick={handleAddGalleryImage} 
                   className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold shadow-lg disabled:opacity-50 active:scale-95 transition-all"
                 >
-                  {isCompressing ? "Compressing..." : "Save to My Device"}
+                  {isCompressing ? "Compressing..." : "Save Image Locally"}
                 </button>
               </div>
            </div>
            
            <div className="bg-white p-6 rounded-[40px] border border-[#88AB8E]/10 h-fit">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-black">Current Gallery</h3>
-                <span className="text-xs font-bold text-black/30">Drag down to see more</span>
+                <h3 className="text-xl font-bold text-black">Current Photos</h3>
               </div>
               <div className="grid grid-cols-2 gap-3 max-h-[600px] overflow-y-auto p-1 custom-scrollbar">
                 {gallery.map(img => (
@@ -256,7 +276,7 @@ const AdminPage: React.FC = () => {
                   <div className="col-span-2 py-20 text-center text-gray-400 font-bold bg-[#F9F8F4] rounded-3xl">No images found.</div>
                 )}
               </div>
-              <p className="text-[10px] text-red-500/60 mt-4 text-center italic">Important: After deleting, you must click "Publish Updates" at the top to remove it from everyone's phones.</p>
+              <p className="text-[10px] text-red-500/60 mt-4 text-center italic">Tip: Tap 'Broadcast Changes' on Dashboard to update everyone else.</p>
            </div>
         </div>
       )}
@@ -264,18 +284,18 @@ const AdminPage: React.FC = () => {
       {activeTab === 'notices' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10 h-fit">
-            <h3 className="text-xl font-bold text-black mb-6">Post New Notice</h3>
+            <h3 className="text-xl font-bold text-black mb-6">Post Notice</h3>
             <div className="space-y-4">
-              <input placeholder="Notice Title" value={newNotice.title} onChange={e => setNewNotice({...newNotice, title: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
+              <input placeholder="Title" value={newNotice.title} onChange={e => setNewNotice({...newNotice, title: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
               <select value={newNotice.category} onChange={e => setNewNotice({...newNotice, category: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl">
                 <option>Panchayat</option><option>Culture</option><option>Health</option><option>Emergency</option>
               </select>
-              <textarea placeholder="Notice details..." value={newNotice.content} onChange={e => setNewNotice({...newNotice, content: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl min-h-[120px]"></textarea>
-              <button onClick={() => { if (newNotice.title) { addNotice(newNotice); setNewNotice({ title: '', category: 'Panchayat', content: '', date: new Date().toISOString().split('T')[0] }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold shadow-lg">Save Notice Locally</button>
+              <textarea placeholder="Details..." value={newNotice.content} onChange={e => setNewNotice({...newNotice, content: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl min-h-[120px]"></textarea>
+              <button onClick={() => { if (newNotice.title) { addNotice(newNotice); setNewNotice({ title: '', category: 'Panchayat', content: '', date: new Date().toISOString().split('T')[0] }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold shadow-lg">Save Locally</button>
             </div>
           </div>
           <div className="bg-white p-6 rounded-[40px] border border-[#88AB8E]/10 h-fit">
-            <h3 className="text-xl font-bold text-black mb-6">Existing Board</h3>
+            <h3 className="text-xl font-bold text-black mb-6">Active Board</h3>
             <div className="space-y-4 max-h-[500px] overflow-y-auto p-1 custom-scrollbar">
               {notices.map(n => (
                 <div key={n.id} className="bg-[#F9F8F4] p-5 rounded-3xl border border-gray-100 flex justify-between items-center shadow-sm">
@@ -298,11 +318,11 @@ const AdminPage: React.FC = () => {
             <div className="space-y-4">
               <input placeholder="Full Name" value={newVillager.name} onChange={e => setNewVillager({...newVillager, name: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
               <input placeholder="Occupation" value={newVillager.occupation} onChange={e => setNewVillager({...newVillager, occupation: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
-              <button onClick={() => { if (newVillager.name) { addVillager(newVillager); setNewVillager({ name: '', occupation: '', contact: '' }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold">Add to Directory</button>
+              <button onClick={() => { if (newVillager.name) { addVillager(newVillager); setNewVillager({ name: '', occupation: '', contact: '' }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold">Add to List</button>
             </div>
           </div>
           <div className="bg-white p-6 rounded-[40px] border border-[#88AB8E]/10 h-fit">
-            <h3 className="text-xl font-bold text-black mb-6">Directory List</h3>
+            <h3 className="text-xl font-bold text-black mb-6">Residents</h3>
             <div className="space-y-2 max-h-[500px] overflow-y-auto custom-scrollbar p-1">
               {villagers.map(v => (
                 <div key={v.id} className="bg-[#F9F8F4] px-6 py-4 rounded-2xl border border-gray-100 flex justify-between items-center">
@@ -317,15 +337,15 @@ const AdminPage: React.FC = () => {
 
       {activeTab === 'home' && (
         <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10 max-w-3xl mx-auto">
-          <h3 className="text-xl font-bold text-black mb-8 flex items-center gap-2"><HomeIcon size={20} /> Portal Content</h3>
+          <h3 className="text-xl font-bold text-black mb-8 flex items-center gap-2"><HomeIcon size={20} /> Website Text</h3>
           <div className="space-y-6">
              <div className="space-y-4">
                 <label className="text-xs font-bold text-black/40 uppercase tracking-widest ml-1">Hero Title</label>
                 <input type="text" value={tempHome.welcomeHeading} onChange={(e) => setTempHome({...tempHome, welcomeHeading: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl font-bold" />
-                <label className="text-xs font-bold text-black/40 uppercase tracking-widest ml-1">Sub-heading Description</label>
+                <label className="text-xs font-bold text-black/40 uppercase tracking-widest ml-1">Description</label>
                 <textarea value={tempHome.welcomeSubheading} onChange={(e) => setTempHome({...tempHome, welcomeSubheading: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl min-h-[100px] text-sm"></textarea>
              </div>
-             <button onClick={() => { updateHomeConfig(tempHome); alert('Applied locally! Click PUBLISH UPDATES to sync.'); }} className="w-full bg-[#88AB8E] text-white py-5 rounded-2xl font-bold shadow-lg">Save Settings Locally</button>
+             <button onClick={() => { updateHomeConfig(tempHome); alert('Changes saved locally.'); }} className="w-full bg-[#88AB8E] text-white py-5 rounded-2xl font-bold shadow-lg">Apply Locally</button>
           </div>
         </div>
       )}
@@ -333,11 +353,11 @@ const AdminPage: React.FC = () => {
       {activeTab === 'reviews' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-white p-8 rounded-[40px] border border-[#88AB8E]/10 h-fit">
-            <h3 className="text-xl font-bold text-black mb-6">Add Testimonial</h3>
+            <h3 className="text-xl font-bold text-black mb-6">Add Feedback</h3>
             <div className="space-y-4">
-              <input placeholder="Resident Name" value={newReview.name} onChange={e => setNewReview({...newReview, name: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
-              <textarea placeholder="Their feedback..." value={newReview.content} onChange={e => setNewReview({...newReview, content: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl min-h-[100px] text-sm"></textarea>
-              <button onClick={() => { if (newReview.name && newReview.content) { addReview(newReview); setNewReview({ name: '', content: '', rating: 5, avatarUrl: 'https://i.pravatar.cc/150' }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold">Add Feedback</button>
+              <input placeholder="Name" value={newReview.name} onChange={e => setNewReview({...newReview, name: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl" />
+              <textarea placeholder="Feedback..." value={newReview.content} onChange={e => setNewReview({...newReview, content: e.target.value})} className="w-full px-5 py-4 bg-[#F9F8F4] rounded-2xl min-h-[100px] text-sm"></textarea>
+              <button onClick={() => { if (newReview.name && newReview.content) { addReview(newReview); setNewReview({ name: '', content: '', rating: 5, avatarUrl: 'https://i.pravatar.cc/150' }); } }} className="w-full bg-[#88AB8E] text-white py-4 rounded-2xl font-bold">Save Feedback</button>
             </div>
           </div>
           <div className="bg-white p-6 rounded-[40px] border border-[#88AB8E]/10 h-fit">
