@@ -10,13 +10,11 @@ import {
   Phone, 
   Briefcase,
   Menu,
-  X,
-  RefreshCw,
-  Globe
+  X
 } from 'lucide-react';
 
 // Context
-import { AppProvider, useApp } from './AppContext';
+import { AppProvider } from './AppContext';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -31,7 +29,11 @@ import AdminPage from './pages/AdminPage';
 // Component to scroll to top on route change
 const ScrollToTop = () => {
   const { pathname } = useLocation();
-  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
   return null;
 };
 
@@ -39,15 +41,19 @@ const ScrollToTop = () => {
 const InitialRedirect = () => {
   const navigate = useNavigate();
   const location = useLocation();
+
   useEffect(() => {
-    if (location.pathname !== '/') { navigate('/', { replace: true }); }
-  }, []);
+    // On mount (which happens on a full page refresh), redirect to home if not already there
+    if (location.pathname !== '/') {
+      navigate('/', { replace: true });
+    }
+  }, []); // Empty dependency array ensures this only runs once when the app initializes
+
   return null;
 };
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { isSyncing } = useApp();
   const location = useLocation();
 
   const navLinks = [
@@ -66,20 +72,14 @@ const Navbar = () => {
           <Link to="/" className="flex items-center gap-2 group">
             <img 
               src="https://cdn-icons-png.flaticon.com/128/36/36487.png" 
-              alt="Logo" 
+              alt="Badapathuria Village Logo" 
               className="w-10 h-10 object-contain group-hover:scale-105 transition-transform"
             />
-            <div className="flex flex-col">
-              <span className="text-xl font-bold text-black tracking-tight leading-none">Badapathuria Portal</span>
-              <div className="flex items-center gap-1">
-                 <span className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></span>
-                 <span className="text-[10px] font-bold text-black/40 uppercase tracking-widest">{isSyncing ? 'Syncing...' : 'Connected'}</span>
-              </div>
-            </div>
+            <span className="text-xl font-bold text-black tracking-tight">Badapathuria Portal</span>
           </Link>
 
           {/* Desktop Nav */}
-          <div className="hidden lg:flex items-center space-x-1">
+          <div className="hidden md:flex space-x-1">
             {navLinks.map((link) => (
               <Link
                 key={link.name}
@@ -104,7 +104,7 @@ const Navbar = () => {
           </div>
 
           {/* Mobile Menu Button */}
-          <div className="lg:hidden">
+          <div className="md:hidden">
             <button
               onClick={() => setIsOpen(!isOpen)}
               className="p-2 rounded-md text-black hover:bg-[#88AB8E]/10"
@@ -117,7 +117,7 @@ const Navbar = () => {
 
       {/* Mobile Nav */}
       {isOpen && (
-        <div className="lg:hidden bg-white border-t border-[#88AB8E]/10 animate-in slide-in-from-top duration-300">
+        <div className="md:hidden bg-white border-t border-[#88AB8E]/10 animate-in slide-in-from-top duration-300">
           <div className="px-2 pt-2 pb-3 space-y-1">
             {navLinks.map((link) => (
               <Link
@@ -150,12 +150,37 @@ const Footer = () => {
     <footer className="bg-white border-t border-[#88AB8E]/20 py-12 mt-20">
       <div className="max-w-7xl mx-auto px-4 text-center">
         <div className="flex justify-center gap-4 mb-6">
-          <Link to="/gallery" className="p-2 rounded-full bg-[#88AB8E]/10 text-[#88AB8E] hover:bg-[#88AB8E] hover:text-white transition-all"><ImageIcon size={20} /></Link>
-          <Link to="/contact" className="p-2 rounded-full bg-[#88AB8E]/10 text-[#88AB8E] hover:bg-[#88AB8E] hover:text-white transition-all"><Phone size={20} /></Link>
-          <Link to="/notices" className="p-2 rounded-full bg-[#88AB8E]/10 text-[#88AB8E] hover:bg-[#88AB8E] hover:text-white transition-all"><MessageSquare size={20} /></Link>
+          <Link 
+            to="/gallery" 
+            className="p-2 rounded-full bg-[#88AB8E]/10 text-[#88AB8E] hover:bg-[#88AB8E] hover:text-white transition-all"
+            title="Gallery"
+          >
+            <ImageIcon size={20} />
+          </Link>
+          <Link 
+            to="/contact" 
+            className="p-2 rounded-full bg-[#88AB8E]/10 text-[#88AB8E] hover:bg-[#88AB8E] hover:text-white transition-all"
+            title="Contact"
+          >
+            <Phone size={20} />
+          </Link>
+          <Link 
+            to="/notices" 
+            className="p-2 rounded-full bg-[#88AB8E]/10 text-[#88AB8E] hover:bg-[#88AB8E] hover:text-white transition-all"
+            title="Notices"
+          >
+            <MessageSquare size={20} />
+          </Link>
         </div>
-        <p className="text-black/60 text-sm mb-2">© 2024 Village of Badapathuria. Central Cloud Active.</p>
-        <p className="text-black/40 text-xs flex items-center justify-center gap-1">Built with <span className="text-red-400">❤</span> for the community.</p>
+        <p className="text-black/60 text-sm mb-2">
+          © 2026 Village of Badapathuria. All Rights Reserved.
+        </p>
+        <p className="text-black/60 text-sm mb-2">
+         Designed and Developed By Papu&Sonu.
+        </p>
+        <p className="text-black/40 text-xs flex items-center justify-center gap-1">
+          Built with <span className="text-red-400">❤</span> for the community.
+        </p>
       </div>
     </footer>
   );
@@ -182,8 +207,18 @@ const App: React.FC = () => {
             </Routes>
           </main>
           <Footer />
-          <a href="https://chat.whatsapp.com/Kw4Xt2UWmtWGYIH6iHbwqL" target="_blank" rel="noopener noreferrer" className="fixed bottom-6 right-6 z-40 bg-black text-white px-6 py-4 rounded-full shadow-2xl hover:bg-gray-800 transition-all flex items-center gap-3 font-bold group border border-[#88AB8E]/20">
-            <img src="https://cdn-icons-png.flaticon.com/128/15713/15713434.png" alt="WhatsApp" className="w-7 h-7 object-contain group-hover:scale-110 transition-transform" />
+          
+          <a 
+            href="https://chat.whatsapp.com/Kw4Xt2UWmtWGYIH6iHbwqL"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="fixed bottom-6 right-6 z-40 bg-black text-white px-6 py-4 rounded-full shadow-2xl hover:bg-gray-800 transition-all flex items-center gap-3 font-bold group border border-[#88AB8E]/20"
+          >
+            <img 
+              src="https://cdn-icons-png.flaticon.com/128/15713/15713434.png" 
+              alt="WhatsApp" 
+              className="w-7 h-7 object-contain group-hover:scale-110 transition-transform"
+            />
             <span className="hidden sm:inline">Join WhatsApp</span>
           </a>
         </div>
