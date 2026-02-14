@@ -17,6 +17,7 @@ interface AppContextType {
   homeConfig: HomeConfig;
   complaints: Complaint[];
   isSyncing: boolean;
+  syncProgress: string;
   lastSync: string | null;
   addNotice: (notice: Omit<Notice, 'id'>) => void;
   deleteNotice: (id: string) => void;
@@ -38,43 +39,30 @@ const INITIAL_REVIEWS: Review[] = [
   { id: '2', name: 'Meena Patra', content: 'Panchayat updates on this portal are very helpful.', rating: 4, avatarUrl: 'https://i.pravatar.cc/150?u=meena' }
 ];
 
-// SHARED CLOUD CONSTANTS - Using v3 to clear old "too large" data conflicts
-const CLOUD_API_BASE = 'https://kvdb.io/A9zY6S9z8q5z2Xz1z7z_badapathuria_v3/';
-const KEY_META = 'meta_v3'; // Notices, Villagers, Reviews, HomeConfig
-const KEY_GALLERY = 'gall_v3'; // Gallery content
+// SHARED CLOUD CONSTANTS - Version 4 (Individual Key Strategy)
+const BUCKET_ID = 'badapathuria_v4_final';
+const CLOUD_API_BASE = `https://kvdb.io/A9zY6S9z8q5z2Xz1z7z_${BUCKET_ID}/`;
+const KEY_META = 'meta'; // Notices, Villagers, etc.
+const KEY_GALLERY_MANIFEST = 'gallery_manifest'; // List of image IDs and metadata (no base64)
+const IMG_KEY_PREFIX = 'img_data_';
 
-// ULTRA-AGGRESSIVE Compression to fit 10-15 images in 64KB
-const compressImage = (base64Str: string, maxWidth = 320, maxHeight = 320): Promise<string> => {
+// Aggressive compression to ensure each individual image is well under 64KB
+const compressImage = (base64Str: string, maxWidth = 400): Promise<string> => {
   return new Promise((resolve) => {
     const img = new Image();
     img.src = base64Str;
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      let width = img.width;
-      let height = img.height;
-
-      if (width > height) {
-        if (width > maxWidth) {
-          height *= maxWidth / width;
-          width = maxWidth;
-        }
-      } else {
-        if (height > maxHeight) {
-          width *= maxHeight / height;
-          height = maxHeight;
-        }
-      }
-
-      canvas.width = width;
-      canvas.height = height;
+      const scale = maxWidth / img.width;
+      canvas.width = maxWidth;
+      canvas.height = img.height * scale;
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, 0, 0, width, height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       }
-      // Low quality (0.3) makes files tiny (approx 3-5KB each)
-      resolve(canvas.toDataURL('image/jpeg', 0.35));
+      resolve(canvas.toDataURL('image/jpeg', 0.5));
     };
     img.onerror = () => resolve(base64Str);
   });
@@ -101,9 +89,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }));
   const [complaints, setComplaints] = useState<Complaint[]>(() => safeJsonParse('village_complaints', []));
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState('');
   const [lastSync, setLastSync] = useState<string | null>(() => localStorage.getItem('last_cloud_sync'));
 
-  // Auto-save to LocalStorage
   useEffect(() => {
     localStorage.setItem('village_notices', JSON.stringify(notices));
     localStorage.setItem('village_villagers', JSON.stringify(villagers));
@@ -115,98 +103,110 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const pullFromCloud = useCallback(async () => {
     setIsSyncing(true);
+    setSyncProgress('Connecting...');
     try {
-      // 1. Get Metadata
+      // 1. Pull Meta
       const metaRes = await fetch(`${CLOUD_API_BASE}${KEY_META}`);
       if (metaRes.ok) {
         const data = await metaRes.json();
-        if (data) {
-          if (data.notices) setNotices(data.notices);
-          if (data.villagers) setVillagers(data.villagers);
-          if (data.reviews) setReviews(data.reviews);
-          if (data.homeConfig) setHomeConfig(data.homeConfig);
-        }
+        if (data.notices) setNotices(data.notices);
+        if (data.villagers) setVillagers(data.villagers);
+        if (data.reviews) setReviews(data.reviews);
+        if (data.homeConfig) setHomeConfig(data.homeConfig);
       }
-      
-      // 2. Get Gallery
-      const galleryRes = await fetch(`${CLOUD_API_BASE}${KEY_GALLERY}`);
-      if (galleryRes.ok) {
-        const data = await galleryRes.json();
-        if (data && Array.isArray(data)) setGallery(data);
+
+      // 2. Pull Gallery Manifest
+      const manifestRes = await fetch(`${CLOUD_API_BASE}${KEY_GALLERY_MANIFEST}`);
+      if (manifestRes.ok) {
+        const manifest = await manifestRes.json(); // Array of {id, title, description}
+        if (Array.isArray(manifest)) {
+          setSyncProgress(`Loading ${manifest.length} images...`);
+          const fullGallery: GalleryImage[] = [];
+          
+          for (const item of manifest) {
+            try {
+              const imgDataRes = await fetch(`${CLOUD_API_BASE}${IMG_KEY_PREFIX}${item.id}`);
+              if (imgDataRes.ok) {
+                const base64 = await imgDataRes.text();
+                // KVDB might return text with quotes if saved as JSON string
+                const cleanBase64 = base64.replace(/^"|"$/g, '');
+                fullGallery.push({ ...item, url: cleanBase64 });
+              }
+            } catch (err) { console.error("Failed to load image", item.id); }
+          }
+          if (fullGallery.length > 0) setGallery(fullGallery);
+        }
       }
 
       const now = new Date().toLocaleString();
       setLastSync(now);
       localStorage.setItem('last_cloud_sync', now);
     } catch (e) {
-      console.warn("Cloud pull failed - offline or limit reached.");
+      console.warn("Sync pull failed.");
     } finally {
       setIsSyncing(false);
+      setSyncProgress('');
     }
   }, []);
 
   const publishToCloud = async () => {
     setIsSyncing(true);
+    setSyncProgress('Saving Village Data...');
     try {
-      // 1. Meta Push
+      // 1. Publish Metadata (Notices, residents, etc.)
       const metaPayload = { notices, villagers, reviews, homeConfig };
       await fetch(`${CLOUD_API_BASE}${KEY_META}`, {
         method: 'PUT',
         body: JSON.stringify(metaPayload),
       });
 
-      // 2. Gallery Push - We only sync the top 15 images to ensure we NEVER hit the size limit
-      const galleryToSync = gallery.slice(0, 15);
-      const galleryRes = await fetch(`${CLOUD_API_BASE}${KEY_GALLERY}`, {
+      // 2. Publish Gallery Manifest (Names/IDs only)
+      const manifest = gallery.map(({ id, title, description }) => ({ id, title, description }));
+      await fetch(`${CLOUD_API_BASE}${KEY_GALLERY_MANIFEST}`, {
         method: 'PUT',
-        body: JSON.stringify(galleryToSync),
+        body: JSON.stringify(manifest),
       });
 
-      if (!galleryRes.ok) throw new Error("Sync rejected - storage full.");
+      // 3. Publish Individual Images
+      for (let i = 0; i < gallery.length; i++) {
+        setSyncProgress(`Uploading Image ${i + 1}/${gallery.length}...`);
+        const img = gallery[i];
+        await fetch(`${CLOUD_API_BASE}${IMG_KEY_PREFIX}${img.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(img.url),
+        });
+      }
 
       const now = new Date().toLocaleString();
       setLastSync(now);
       localStorage.setItem('last_cloud_sync', now);
     } catch (e) {
-      alert("Notice: Data sync failed because the cloud storage is full. Please delete 2-3 images and try publishing again.");
+      alert("Sync failed. The cloud might be busy. Please try again in a few minutes.");
     } finally {
       setIsSyncing(false);
+      setSyncProgress('');
     }
   };
 
-  // Pull on initial load
   useEffect(() => { pullFromCloud(); }, [pullFromCloud]);
 
   const addNotice = (notice: Omit<Notice, 'id'>) => setNotices(prev => [{ ...notice, id: Date.now().toString() }, ...prev]);
   const deleteNotice = (id: string) => setNotices(prev => prev.filter(n => n.id !== id));
-  
   const addVillager = (villager: Omit<Villager, 'id'>) => setVillagers(prev => [{ ...villager, id: Date.now().toString() }, ...prev]);
   const deleteVillager = (id: string) => setVillagers(prev => prev.filter(v => v.id !== id));
   
   const addImage = async (image: Omit<GalleryImage, 'id'>): Promise<boolean> => {
-    // Hard cap for demo cloud storage
-    if (gallery.length >= 20) {
-      alert("Gallery limit reached. Delete old photos before adding new ones.");
-      return false;
-    }
-    
-    // EXTREME compression
+    if (gallery.length >= 30) return false;
     const compressedUrl = await compressImage(image.url);
     const newImage = { ...image, url: compressedUrl, id: Date.now().toString() };
-    
     setGallery(prev => [newImage, ...prev]);
     return true;
   };
 
-  const deleteImage = (id: string) => {
-    setGallery(prev => prev.filter(i => i.id !== id));
-  };
-
+  const deleteImage = (id: string) => setGallery(prev => prev.filter(i => i.id !== id));
   const addReview = (review: Omit<Review, 'id'>) => setReviews(prev => [{ ...review, id: Date.now().toString() }, ...prev]);
   const deleteReview = (id: string) => setReviews(prev => prev.filter(r => r.id !== id));
-  
   const updateHomeConfig = (config: HomeConfig) => setHomeConfig(config);
-  
   const addComplaint = (complaint: Omit<Complaint, 'id' | 'date' | 'status'>) => {
     setComplaints(prev => [{ ...complaint, id: Date.now().toString(), date: new Date().toISOString().split('T')[0], status: 'pending' }, ...prev]);
   };
@@ -214,7 +214,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={{
-      notices, villagers, gallery, reviews, homeConfig, complaints, isSyncing, lastSync,
+      notices, villagers, gallery, reviews, homeConfig, complaints, isSyncing, syncProgress, lastSync,
       addNotice, deleteNotice, addVillager, deleteVillager,
       addImage, deleteImage, addReview, deleteReview, updateHomeConfig, addComplaint, deleteComplaint,
       publishToCloud, pullFromCloud
