@@ -109,8 +109,8 @@ const HomePage: React.FC = () => {
         <div className="bg-white p-6 md:p-12 rounded-[40px] shadow-2xl shadow-black/5 border border-[#88AB8E]/10">
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-4">
             <div>
-              <h3 className="text-2xl md:text-3xl font-bold text-black">Village Vital Statistics</h3>
-              <p className="text-black/40 font-medium text-sm">Monitoring the progress of Badapathuria in real-time.</p>
+              <h3 className="text-2xl md:text-3xl font-bold text-black">ଗାଁର ଗୁରୁତ୍ୱପୂର୍ଣ୍ଣ ପରିସଂଖ୍ୟାନ</h3>
+              <p className="text-black/40 font-medium text-sm">ପ୍ରକୃତ ସମୟରେ ବଡପଥୁରିଆର ପ୍ରଗତି ତଦାରଖ କରିବା</p>
             </div>
             <div className="bg-[#88AB8E]/10 text-[#88AB8E] px-4 py-2 rounded-2xl text-[10px] md:text-xs font-bold tracking-widest uppercase w-fit">Panchayat Verified</div>
           </div>
@@ -118,7 +118,7 @@ const HomePage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
             <div>
               <p className="text-sm font-bold text-black/40 mb-6 uppercase tracking-wider flex items-center gap-2">
-                <TrendingUp size={14} /> Community Participation
+                <TrendingUp size={14} />ସମ୍ପ୍ରଦାୟର ଅଂଶଗ୍ରହଣ
               </p>
               <div className="h-[250px] md:h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
