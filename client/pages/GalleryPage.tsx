@@ -181,7 +181,7 @@ const GalleryPage: React.FC = () => {
             onChange={handleFileUpload}
           />
 
-          <button
+          {/* <button
             onClick={openFileSelector}
             disabled={isUploading}
             className="flex items-center gap-2 bg-black text-white px-6 py-3 rounded-2xl font-bold text-sm hover:bg-[#333] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
@@ -202,7 +202,7 @@ const GalleryPage: React.FC = () => {
             }
 
           </button>
-
+ */}
 
           <div className="flex gap-1 p-1 bg-[#88AB8E]/5 rounded-2xl border border-[#88AB8E]/10">
 
@@ -337,7 +337,7 @@ const GalleryPage: React.FC = () => {
           archive of our village history.
         </p>
 
-        <button
+        {/* <button
           onClick={openFileSelector}
           disabled={isUploading}
           className="bg-[#88AB8E] text-white px-10 py-4 rounded-full font-bold hover:bg-[#6B8A7A] shadow-xl shadow-[#88AB8E]/10 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -348,7 +348,7 @@ const GalleryPage: React.FC = () => {
             : 'Start Uploading'
           }
 
-        </button>
+        </button> */}
 
       </div>
 
