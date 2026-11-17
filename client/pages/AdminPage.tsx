@@ -17,10 +17,19 @@ import {
   Star,
   IndianRupee,
   HandCoins,
-  WalletCards
+  WalletCards,
+  IdCard,
+  Search,
+  RefreshCw,
+  Menu,
+  X,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 import { useApp } from '../AppContext';
+import FamilyQrCard from '../components/FamilyQrCard';
+import { Link } from 'react-router-dom';
 
 const AdminPage: React.FC = () => {
 
@@ -32,6 +41,7 @@ const AdminPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const [activeTab, setActiveTab] = useState<
     'dash' |
@@ -40,7 +50,8 @@ const AdminPage: React.FC = () => {
     'villagers' |
     'home' |
     'reviews' |
-    'puja'
+    'puja' |
+    'families'
   >('dash');
 
 
@@ -70,7 +81,14 @@ const AdminPage: React.FC = () => {
     updateHomeConfig,
     deleteComplaint,
     addReview,
-    deleteReview
+    deleteReview,
+
+    // DIGITAL VILLAGE ID
+    families,
+    fetchFamilies,
+    addFamily,
+    updateFamily,
+    deleteFamily
 
   } = useApp();
 
@@ -127,6 +145,38 @@ const AdminPage: React.FC = () => {
 
   const [tempHome, setTempHome] = useState(homeConfig);
 
+  // =====================================================
+  // DIGITAL VILLAGE ID - FAMILY FORM
+  // =====================================================
+
+  type FamilyFormMember = {
+    name: string;
+    relation: string;
+    age: string;
+    gender: 'Male' | 'Female' | 'Other';
+  };
+
+  const emptyFamilyMember: FamilyFormMember = {
+    name: '',
+    relation: '',
+    age: '',
+    gender: 'Male'
+  };
+
+  const [newFamily, setNewFamily] = useState({
+    familyHead: '',
+    wardNumber: '',
+    // STEP 3: Permanent address default
+    address: 'At-Badapathuria, Post-Deuli, 752064',
+    houseNumber: '',
+    members: [{ ...emptyFamilyMember }]
+  });
+
+  const [familySearch, setFamilySearch] = useState('');
+  const [selectedFamilyId, setSelectedFamilyId] = useState<string | null>(null);
+  const [familySaving, setFamilySaving] = useState(false);
+  const [familyMessage, setFamilyMessage] = useState('');
+
 
   // =====================================================
   // REFS
@@ -139,6 +189,132 @@ const AdminPage: React.FC = () => {
 
   const reviewAvatarInputRef =
     useRef<HTMLInputElement>(null);
+
+
+  // =====================================================
+  // DIGITAL VILLAGE ID - FAMILY HANDLERS
+  // =====================================================
+
+  const handleAddFamilyMember = () => {
+    setNewFamily(prev => ({
+      ...prev,
+      members: [...prev.members, { ...emptyFamilyMember }]
+    }));
+  };
+
+  const handleRemoveFamilyMember = (index: number) => {
+    setNewFamily(prev => ({
+      ...prev,
+      members: prev.members.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleFamilyMemberChange = (
+    index: number,
+    field: keyof FamilyFormMember,
+    value: string
+  ) => {
+    setNewFamily(prev => ({
+      ...prev,
+      members: prev.members.map((member, i) =>
+        i === index
+          ? { ...member, [field]: value }
+          : member
+      )
+    }));
+  };
+
+  const handleFamilySubmit = async (
+    e: React.FormEvent<HTMLFormElement>
+  ) => {
+    e.preventDefault();
+
+    setFamilySaving(true);
+    setFamilyMessage('');
+
+    try {
+      const familyData = {
+        familyHead: newFamily.familyHead.trim(),
+        wardNumber: newFamily.wardNumber.trim(),
+        address: newFamily.address.trim(),
+        houseNumber: newFamily.houseNumber.trim(),
+        members: newFamily.members
+          .filter(member => member.name.trim() && member.relation.trim())
+          .map(member => ({
+            name: member.name.trim(),
+            relation: member.relation.trim(),
+            age: member.age ? Number(member.age) : undefined,
+            gender: member.gender
+          }))
+      };
+
+      const savedFamily = await addFamily(familyData);
+
+      if (savedFamily) {
+        setSelectedFamilyId(savedFamily.id);
+
+        setNewFamily({
+          familyHead: '',
+          wardNumber: '',
+          // STEP 3: Keep permanent address after reset
+          address: 'At-Badapathuria, Post-Deuli, 752064',
+          houseNumber: '',
+          members: [{ ...emptyFamilyMember }]
+        });
+      } else {
+        setFamilyMessage('Family registration failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('Family registration error:', error);
+      setFamilyMessage('Something went wrong while registering the family.');
+    } finally {
+      setFamilySaving(false);
+    }
+  };
+
+  const handleFamilyStatusChange = async (
+    familyId: string,
+    currentStatus: 'Active' | 'Inactive'
+  ) => {
+    const newStatus =
+      currentStatus === 'Active' ? 'Inactive' : 'Active';
+
+    const success = await updateFamily(familyId, {
+      status: newStatus
+    });
+
+    if (!success) {
+      alert('Failed to update family status.');
+    }
+  };
+
+  const handleFamilyDelete = async (familyId: string) => {
+    const confirmed = window.confirm(
+      'Are you sure you want to delete this family profile?'
+    );
+
+    if (!confirmed) return;
+
+    const success = await deleteFamily(familyId);
+
+    if (!success) {
+      alert('Failed to delete family profile.');
+    } else if (selectedFamilyId === familyId) {
+      setSelectedFamilyId(null);
+    }
+
+  };
+
+  const filteredFamilies = families.filter(family => {
+    const search = familySearch.toLowerCase();
+
+    return (
+      family.familyId.toLowerCase().includes(search) ||
+      family.familyHead.toLowerCase().includes(search) ||
+      family.wardNumber.toLowerCase().includes(search) ||
+      family.address.toLowerCase().includes(search)
+    );
+  });
 
 
   // =====================================================
@@ -351,6 +527,22 @@ const AdminPage: React.FC = () => {
   };
 
 
+  const adminTabs: {
+    id: typeof activeTab;
+    label: string;
+    icon: React.ReactNode;
+  }[] = [
+    { id: 'dash', label: 'Overview', icon: <LayoutDashboard size={18} /> },
+    { id: 'home', label: 'Home Page', icon: <HomeIcon size={18} /> },
+    { id: 'notices', label: 'Notices', icon: <FileText size={18} /> },
+    { id: 'gallery', label: 'Gallery', icon: <Camera size={18} /> },
+    { id: 'villagers', label: 'Directory', icon: <Users size={18} /> },
+    { id: 'puja', label: 'Puja & Donations', icon: <HandCoins size={18} /> },
+    { id: 'reviews', label: 'Reviews', icon: <Star size={18} /> },
+    { id: 'families', label: 'Family ID', icon: <IdCard size={18} /> },
+  ];
+
+
   // =====================================================
   // NOT LOGGED IN
   // =====================================================
@@ -359,7 +551,15 @@ const AdminPage: React.FC = () => {
 
     return (
 
-      <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
+      <div className="min-h-screen md:min-h-[80vh] flex items-center justify-center px-4 py-12 pt-20 md:pt-12">
+
+        <Link
+          to="/"
+          className="fixed top-4 left-4 z-50 inline-flex items-center gap-2 rounded-xl border border-[#88AB8E]/20 bg-white px-4 py-3 text-sm font-bold text-[#557B5D] shadow-md transition-colors hover:bg-[#88AB8E]/10"
+        >
+          <HomeIcon size={18} />
+          Back to Portal
+        </Link>
 
         <div className="bg-white p-6 md:p-10 rounded-[40px] shadow-2xl border border-[#88AB8E]/10 w-full max-w-md">
 
@@ -472,121 +672,149 @@ const AdminPage: React.FC = () => {
 
   return (
 
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
+    <div className="w-full min-w-0 max-w-7xl mx-auto px-3 sm:px-6 pb-8 md:px-8 md:py-10">
+
+      <div className="md:hidden -mx-3 sm:-mx-6 mb-6 bg-white border-b border-[#88AB8E]/15 shadow-sm">
+        <div className="flex items-center justify-between h-16 px-3 sm:px-5 gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="min-w-0">
+              <span className="block truncate font-black text-sm text-black">Admin Panel</span>
+              <span className="hidden sm:block truncate text-[11px] text-black/50">
+                {adminTabs.find(tab => tab.id === activeTab)?.label}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(open => !open)}
+              aria-expanded={mobileNavOpen}
+              aria-controls="admin-mobile-sections"
+              aria-label={mobileNavOpen ? 'Close admin sections' : 'Open admin sections'}
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-[#88AB8E]/20 bg-[#88AB8E]/10 text-[#426B49]"
+            >
+              {mobileNavOpen ? <X size={22} /> : <Menu size={22} />}
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsLoggedIn(false)}
+            className="flex flex-shrink-0 items-center gap-1.5 bg-black text-white px-3 py-2 rounded-lg text-xs font-bold"
+          >
+            <LogOut size={14} />
+            Logout
+          </button>
+        </div>
+        {mobileNavOpen && (
+          <nav
+            id="admin-mobile-sections"
+            aria-label="Admin sections"
+            className="max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-[#88AB8E]/15 bg-white px-3 pb-4"
+          >
+            <div className="flex items-center justify-between py-3">
+              <span className="text-xs font-black uppercase tracking-wider text-black/50">Admin Sections</span>
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen(false)}
+                aria-label="Close admin sections"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-black/15 bg-white text-black hover:bg-gray-100"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {adminTabs.map(tab => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    setMobileNavOpen(false);
+                  }}
+                  aria-current={activeTab === tab.id ? 'page' : undefined}
+                  className={`flex min-h-12 min-w-0 items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm font-bold ${
+                    activeTab === tab.id
+                      ? 'bg-[#88AB8E] text-white'
+                      : 'bg-[#88AB8E]/10 text-black/70'
+                  }`}
+                >
+                  <span className="shrink-0">{tab.icon}</span>
+                  <span className="min-w-0 break-words leading-tight">{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          </nav>
+        )}
+      </div>
 
 
       {/* =====================================================
           HEADER
       ===================================================== */}
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+{/* =====================================================
+    DESKTOP HEADER
+===================================================== */}
+<div className="hidden md:flex items-center justify-between gap-8 mb-8 lg:mb-10">
 
-        <div>
+  {/* DASHBOARD TITLE */}
+  <div className="flex-1 min-w-0">
+    <h1 className="text-2xl lg:text-3xl xl:text-4xl font-bold text-black leading-tight">
+      Admin Dashboard
+    </h1>
 
-          <h1 className="text-3xl md:text-4xl font-bold text-black">
+    <p className="text-sm text-black/55 mt-2">
+      Logged in as admin
+    </p>
+  </div>
 
-            Admin Dashboard
+  {/* LOGOUT BUTTON */}
+  <button
+    type="button"
+    onClick={() => setIsLoggedIn(false)}
+    className="flex flex-shrink-0 items-center justify-center gap-2 bg-black text-white px-6 lg:px-7 py-3 rounded-xl font-bold text-sm hover:bg-[#333] active:scale-95 transition-all shadow-sm"
+  >
+    <LogOut size={17} />
+    <span>Logout</span>
+  </button>
 
-          </h1>
-
-          <p className="text-black/60 mt-1">
-
-            Logged in as admin
-
-          </p>
-
-        </div>
+</div>
 
 
+{/* =====================================================
+    DESKTOP TAB NAVIGATION
+===================================================== */}
+<div className="hidden md:block mb-10">
+
+  <div className="pb-2">
+
+    <div className="flex flex-wrap items-center gap-2 lg:gap-3 border-b border-gray-200">
+
+      {adminTabs.map(tab => (
         <button
-          onClick={() =>
-            setIsLoggedIn(false)
-          }
-          className="bg-black text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-[#333] transition-all flex items-center gap-2"
+          key={tab.id}
+          type="button"
+          onClick={() => setActiveTab(tab.id as any)}
+          className={`relative flex items-center justify-center gap-2 px-3 lg:px-4 py-3 rounded-t-xl font-bold text-sm transition-all flex-shrink-0 border-b-[3px] -mb-[2px] ${
+            activeTab === tab.id
+              ? 'bg-[#88AB8E]/15 text-[#426B49] border-[#557B5D]'
+              : 'text-black/55 hover:bg-[#88AB8E]/10 hover:text-[#426B49] border-transparent'
+          }`}
         >
-
-          <LogOut size={18} />
-
-          Logout
-
-        </button>
-
-      </div>
-
-
-      {/* =====================================================
-          TAB NAVIGATION
-      ===================================================== */}
-
-      <div className="flex overflow-x-auto pb-4 mb-10 gap-2 border-b border-gray-100 custom-scrollbar whitespace-nowrap">
-
-
-        {[
-          {
-            id: 'dash',
-            label: 'Overview',
-            icon: <LayoutDashboard size={18} />
-          },
-
-          {
-            id: 'home',
-            label: 'Home Page',
-            icon: <HomeIcon size={18} />
-          },
-
-          {
-            id: 'notices',
-            label: 'Notices',
-            icon: <FileText size={18} />
-          },
-
-          {
-            id: 'gallery',
-            label: 'Gallery',
-            icon: <Camera size={18} />
-          },
-
-          {
-            id: 'villagers',
-            label: 'Directory',
-            icon: <Users size={18} />
-          },
-
-          {
-            id: 'puja',
-            label: 'Puja & Donations',
-            icon: <HandCoins size={18} />
-          },
-
-          {
-            id: 'reviews',
-            label: 'Reviews',
-            icon: <Star size={18} />
-          }
-
-        ].map(tab => (
-
-          <button
-            key={tab.id}
-            onClick={() =>
-              setActiveTab(tab.id as any)
-            }
-            className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm transition-all flex-shrink-0 ${
-              activeTab === tab.id
-                ? 'bg-[#88AB8E] text-white shadow-lg shadow-[#88AB8E]/20'
-                : 'text-black/60 hover:bg-[#88AB8E]/10'
-            }`}
-          >
-
+          <span className="flex-shrink-0">
             {tab.icon}
+          </span>
 
+          <span>
             {tab.label}
+          </span>
+        </button>
+      ))}
 
-          </button>
+    </div>
 
-        ))}
+  </div>
 
-      </div>
+</div>
+
 
 
       {/* =====================================================
@@ -2427,6 +2655,554 @@ const AdminPage: React.FC = () => {
               </div>
 
             )}
+
+          </div>
+
+        </div>
+
+      )}
+
+      {/* =====================================================
+          DIGITAL VILLAGE ID - FAMILY MANAGEMENT
+      ===================================================== */}
+
+      {activeTab === 'families' && (
+
+        <div className="space-y-8">
+
+          {/* HEADER */}
+
+          <div className="flex flex-wrap justify-between items-center gap-4">
+
+            <div>
+              <h2 className="text-2xl font-black text-gray-800">
+                Digital Village ID
+              </h2>
+
+              <p className="text-sm text-gray-500 mt-1">
+                Register and manage village family profiles
+              </p>
+            </div>
+
+            <button
+              onClick={fetchFamilies}
+              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-[#88AB8E]/10 text-[#557B5D] font-bold"
+            >
+              <RefreshCw size={17} />
+              Refresh Families
+            </button>
+
+          </div>
+
+
+          {/* SUMMARY */}
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+              <p className="text-sm text-gray-500">Total Families</p>
+              <h3 className="text-3xl font-black mt-2">
+                {families.length}
+              </h3>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+              <p className="text-sm text-gray-500">Active Families</p>
+              <h3 className="text-3xl font-black text-green-600 mt-2">
+                {families.filter(f => f.status === 'Active').length}
+              </h3>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+              <p className="text-sm text-gray-500">Inactive Families</p>
+              <h3 className="text-3xl font-black text-red-500 mt-2">
+                {families.filter(f => f.status === 'Inactive').length}
+              </h3>
+            </div>
+
+          </div>
+
+
+          {/* REGISTRATION FORM */}
+
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">
+
+            <div className="flex items-center gap-3 mb-7">
+              <div className="bg-[#88AB8E]/10 p-3 rounded-xl">
+                <Users className="text-[#557B5D]" />
+              </div>
+
+              <div>
+                <h3 className="text-xl font-black">
+                  Register New Family
+                </h3>
+
+                <p className="text-sm text-gray-500">
+                  Enter household and family member information
+                </p>
+              </div>
+            </div>
+
+
+            {familyMessage && (
+              <div role="alert" className="mb-6 p-4 rounded-xl bg-red-50 text-red-700 font-semibold text-sm">
+                {familyMessage}
+              </div>
+            )}
+
+
+            <form onSubmit={handleFamilySubmit} className="space-y-6">
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                <div>
+                  <label className="block text-sm font-bold mb-2">
+                    Family Head Name *
+                  </label>
+
+                  {/* STEP 1: Family Head is now a dropdown fed by the Directory */}
+                  <select
+                    required
+                    value={newFamily.familyHead}
+                    onChange={e =>
+                      setNewFamily(prev => ({
+                        ...prev,
+                        familyHead: e.target.value
+                      }))
+                    }
+                    className="w-full border border-gray-200 rounded-xl p-3 outline-none focus:border-[#88AB8E] bg-white"
+                  >
+                    <option value="">Select Family Head from Directory</option>
+
+                    {[...villagers]
+                      .filter(v => v.name?.trim())
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map(villager => (
+                        <option key={villager.id} value={villager.name}>
+                          {villager.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+
+                <div>
+                  <label className="block text-sm font-bold mb-2">
+                    Ward Number *
+                  </label>
+
+                  <input
+                    required
+                    value={newFamily.wardNumber}
+                    onChange={e =>
+                      setNewFamily(prev => ({
+                        ...prev,
+                        wardNumber: e.target.value
+                      }))
+                    }
+                    placeholder="Enter ward number"
+                    className="w-full border border-gray-200 rounded-xl p-3 outline-none focus:border-[#88AB8E]"
+                  />
+                </div>
+
+
+                <div>
+                  <label className="block text-sm font-bold mb-2">
+                    Complete Address *
+                  </label>
+
+                  {/* STEP 2: Address is now fixed / read-only */}
+                  <input
+                    value="At-Badapathuria, Post-Deuli, 752064"
+                    readOnly
+                    className="w-full border border-gray-200 rounded-xl p-3 bg-gray-100 text-gray-700 cursor-not-allowed"
+                  />
+                </div>
+
+
+                <div>
+                  <label className="block text-sm font-bold mb-2">
+                    House Number
+                  </label>
+
+                  <input
+                    value={newFamily.houseNumber}
+                    onChange={e =>
+                      setNewFamily(prev => ({
+                        ...prev,
+                        houseNumber: e.target.value
+                      }))
+                    }
+                    placeholder="Enter house number"
+                    className="w-full border border-gray-200 rounded-xl p-3 outline-none focus:border-[#88AB8E]"
+                  />
+                </div>
+
+              </div>
+
+
+              {/* FAMILY MEMBERS */}
+
+              <div className="border-t border-gray-100 pt-6">
+
+                <div className="flex flex-wrap justify-between items-center gap-3 mb-5">
+
+                  <div>
+                    <h4 className="font-black text-lg">
+                      Family Members
+                    </h4>
+
+                    <p className="text-sm text-gray-500">
+                      Add all members belonging to this household
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAddFamilyMember}
+                    className="flex items-center gap-2 bg-[#88AB8E] text-white px-4 py-2.5 rounded-xl font-bold text-sm"
+                  >
+                    <Plus size={17} />
+                    Add Member
+                  </button>
+
+                </div>
+
+
+                <div className="space-y-4">
+
+                  {newFamily.members.map((member, index) => (
+
+                    <div
+                      key={index}
+                      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 bg-gray-50 p-4 rounded-2xl"
+                    >
+
+                      <input
+                        required
+                        value={member.name}
+                        onChange={e =>
+                          handleFamilyMemberChange(
+                            index,
+                            'name',
+                            e.target.value
+                          )
+                        }
+                        placeholder="Member name"
+                        className="border border-gray-200 rounded-xl p-3 bg-white outline-none"
+                      />
+
+
+                      <input
+                        required
+                        value={member.relation}
+                        onChange={e =>
+                          handleFamilyMemberChange(
+                            index,
+                            'relation',
+                            e.target.value
+                          )
+                        }
+                        placeholder="Relation (Son, Wife...)"
+                        className="border border-gray-200 rounded-xl p-3 bg-white outline-none"
+                      />
+
+
+                      <input
+                        type="number"
+                        min="0"
+                        max="120"
+                        value={member.age}
+                        onChange={e =>
+                          handleFamilyMemberChange(
+                            index,
+                            'age',
+                            e.target.value
+                          )
+                        }
+                        placeholder="Age"
+                        className="border border-gray-200 rounded-xl p-3 bg-white outline-none"
+                      />
+
+
+                      <select
+                        value={member.gender}
+                        onChange={e =>
+                          handleFamilyMemberChange(
+                            index,
+                            'gender',
+                            e.target.value
+                          )
+                        }
+                        className="border border-gray-200 rounded-xl p-3 bg-white outline-none"
+                      >
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+
+
+                      <button
+                        type="button"
+                        disabled={newFamily.members.length === 1}
+                        onClick={() => handleRemoveFamilyMember(index)}
+                        className="flex items-center justify-center gap-2 text-red-500 hover:bg-red-50 rounded-xl p-3 disabled:opacity-30"
+                      >
+                        <Trash2 size={17} />
+                        Remove
+                      </button>
+
+                    </div>
+
+                  ))}
+
+                </div>
+
+              </div>
+
+
+              <button
+                type="submit"
+                disabled={familySaving}
+                className="w-full md:w-auto flex items-center justify-center gap-2 bg-[#88AB8E] hover:bg-[#759B7C] text-white px-8 py-4 rounded-xl font-black disabled:opacity-50"
+              >
+                <Plus size={19} />
+
+                {familySaving
+                  ? 'Registering Family...'
+                  : 'Register Family'}
+              </button>
+
+            </form>
+
+          </div>
+
+
+          {/* REGISTERED FAMILY LIST */}
+
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">
+
+            <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
+
+              <div>
+                <h3 className="text-xl font-black">
+                  Registered Families
+                </h3>
+
+                <p className="text-sm text-gray-500 mt-1">
+                  Search and manage family records
+                </p>
+              </div>
+
+              <span className="text-sm font-bold text-gray-500">
+                {filteredFamilies.length} Records
+              </span>
+
+            </div>
+
+
+            <div className="relative mb-6">
+
+              <Search
+                size={19}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+
+              <input
+                value={familySearch}
+                onChange={e => setFamilySearch(e.target.value)}
+                placeholder="Search by Family ID, family head, ward or address..."
+                className="w-full border border-gray-200 rounded-xl py-4 pl-12 pr-4 outline-none focus:border-[#88AB8E]"
+              />
+
+            </div>
+
+
+            <div className="space-y-4">
+
+              {filteredFamilies.map(family => (
+
+                <div
+                  key={family.id}
+                  className="border border-gray-100 rounded-2xl p-5 hover:border-[#88AB8E]/50 transition-all"
+                >
+
+                  <div className="flex flex-wrap justify-between gap-4">
+
+                    <div className="min-w-0">
+
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+
+                        <span className="font-black text-[#557B5D]">
+                          {family.familyId}
+                        </span>
+
+                        <span
+                          className={`text-xs font-bold px-3 py-1 rounded-full ${
+                            family.status === 'Active'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-red-100 text-red-600'
+                          }`}
+                        >
+                          {family.status}
+                        </span>
+
+                      </div>
+
+                      <h4 className="font-black text-lg">
+                        {family.familyHead}
+                      </h4>
+
+                      <p className="text-sm text-gray-500 mt-1">
+                        Ward {family.wardNumber} · {family.address}
+                      </p>
+
+                      <p className="text-sm text-gray-500 mt-1">
+                        {family.members.length} Family Members
+                      </p>
+
+                    </div>
+
+
+                    <div className="flex flex-wrap items-center gap-2">
+
+                      <button
+                        onClick={() =>
+                          setSelectedFamilyId(
+                            selectedFamilyId === family.id
+                              ? null
+                              : family.id
+                          )
+                        }
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 text-gray-700 font-bold text-sm"
+                      >
+                        {selectedFamilyId === family.id
+                          ? <ChevronUp size={16} />
+                          : <ChevronDown size={16} />}
+
+                        Details
+                      </button>
+
+
+                      <button
+                        onClick={() =>
+                          handleFamilyStatusChange(
+                            family.id,
+                            family.status
+                          )
+                        }
+                        className="px-4 py-2 rounded-xl bg-[#88AB8E]/10 text-[#557B5D] font-bold text-sm"
+                      >
+                        {family.status === 'Active'
+                          ? 'Deactivate'
+                          : 'Activate'}
+                      </button>
+
+
+                      <button
+                        onClick={() => handleFamilyDelete(family.id)}
+                        className="p-2 rounded-xl text-red-500 hover:bg-red-50"
+                        title="Delete family"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+
+                    </div>
+
+                  </div>
+
+
+                  {/* FAMILY DETAILS */}
+
+               {selectedFamilyId === family.id && (
+  <div className="mt-5 pt-5 border-t border-gray-100">
+    <div className="flex justify-center mb-5">
+        <FamilyQrCard
+          family={family}
+          onClose={() => setSelectedFamilyId(null)}
+        />
+    </div>
+
+    {/* Members table */}
+    <h5 className="font-black mb-3">Family Member Details</h5>
+
+                      <div className="overflow-x-auto">
+
+                        <table className="w-full text-sm text-left">
+
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="p-3">Name</th>
+                              <th className="p-3">Relation</th>
+                              <th className="p-3">Age</th>
+                              <th className="p-3">Gender</th>
+                            </tr>
+                          </thead>
+
+                          <tbody>
+
+                            {family.members.map((member, index) => (
+
+                              <tr
+                                key={member._id || index}
+                                className="border-b border-gray-100"
+                              >
+                                <td className="p-3 font-semibold">
+                                  {member.name}
+                                </td>
+
+                                <td className="p-3">
+                                  {member.relation}
+                                </td>
+
+                                <td className="p-3">
+                                  {member.age ?? '—'}
+                                </td>
+
+                                <td className="p-3">
+                                  {member.gender || '—'}
+                                </td>
+                              </tr>
+
+                            ))}
+
+                          </tbody>
+
+                        </table>
+
+                      </div>
+
+                    </div>
+
+                  )}
+
+                </div>
+
+              ))}
+
+
+              {filteredFamilies.length === 0 && (
+
+                <div className="text-center py-16 bg-gray-50 rounded-2xl">
+
+                  <Users
+                    size={40}
+                    className="mx-auto text-gray-300 mb-3"
+                  />
+
+                  <p className="font-bold text-gray-500">
+                    No family records found
+                  </p>
+
+                  <p className="text-sm text-gray-400 mt-1">
+                    Register a family or change your search
+                  </p>
+
+                </div>
+
+              )}
+
+            </div>
 
           </div>
 

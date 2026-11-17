@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useContext,
@@ -44,6 +45,41 @@ export interface NewPuja {
 }
 
 // ========================================
+// FAMILY TYPES - DIGITAL VILLAGE ID
+// ========================================
+
+export interface FamilyMember {
+  _id?: string;
+  name: string;
+  relation: string;
+  age?: number;
+  gender?: 'Male' | 'Female' | 'Other';
+}
+
+export interface Family {
+  id: string;
+  familyId: string;
+  familyHead: string;
+  wardNumber: string;
+  address: string;
+  houseNumber?: string;
+  members: FamilyMember[];
+  status: 'Active' | 'Inactive';
+  qrToken?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface NewFamily {
+  familyHead: string;
+  wardNumber: string;
+  address: string;
+  houseNumber?: string;
+  members: FamilyMember[];
+  status?: 'Active' | 'Inactive';
+}
+
+// ========================================
 // CONTEXT TYPE
 // ========================================
 
@@ -55,6 +91,14 @@ interface AppContextType {
   homeConfig: HomeConfig;
   complaints: Complaint[];
   pujas: Puja[];
+
+  // FAMILIES
+  families: Family[];
+  fetchFamilies: () => Promise<void>;
+  addFamily: (family: NewFamily) => Promise<Family | null>;
+  getFamilyById: (id: string) => Promise<Family | null>;
+  updateFamily: (id: string, family: Partial<NewFamily>) => Promise<boolean>;
+  deleteFamily: (id: string) => Promise<boolean>;
 
   isProcessing: boolean;
   processMessage: string;
@@ -107,14 +151,32 @@ const STORAGE_KEYS = {
   COMPLAINTS: 'bp_complaints',
   LAST_UPDATE: 'bp_last_update',
   VERSION: 'bp_sys_version',
-  PUJAS: 'bp_pujas', // NEW
+  PUJAS: 'bp_pujas',
 };
 
 // ========================================
 // BACKEND API URL
 // ========================================
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = 'http://localhost:5000/api';
+
+// ========================================
+// FAMILY RESPONSE FORMATTER
+// ========================================
+
+const formatFamily = (family: any): Family => ({
+  id: family._id || family.id,
+  familyId: family.familyId,
+  familyHead: family.familyHead,
+  wardNumber: family.wardNumber,
+  address: family.address,
+  houseNumber: family.houseNumber || '',
+  members: Array.isArray(family.members) ? family.members : [],
+  status: family.status || 'Active',
+  qrToken: family.qrToken,
+  createdAt: family.createdAt,
+  updatedAt: family.updatedAt,
+});
 
 // ========================================
 // APP PROVIDER
@@ -123,12 +185,14 @@ const API_URL = import.meta.env.VITE_API_URL;
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+
   // ========================================
   // SYSTEM VERSION
   // ========================================
 
   useEffect(() => {
     const savedVersion = localStorage.getItem(STORAGE_KEYS.VERSION);
+
     if (savedVersion !== SYSTEM_VERSION) {
       localStorage.setItem(STORAGE_KEYS.VERSION, SYSTEM_VERSION);
     }
@@ -140,15 +204,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const [notices, setNotices] = useState<Notice[]>([]);
 
-  // ========================================
-  // FETCH NOTICES
-  // ========================================
-
   const fetchNotices = async () => {
     try {
       const response = await fetch(`${API_URL}/notices`);
       const data = await response.json();
-      console.log('Notices response:', data);
 
       if (!response.ok || !data.success) {
         console.error('Failed to fetch notices:', data.message);
@@ -179,40 +238,199 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const [villagers, setVillagers] = useState<Villager[]>(INITIAL_VILLAGERS);
 
-  // ========================================
-  // FETCH VILLAGERS
-  // ========================================
-const fetchVillagers = async () => {
-  try {
-    const response = await fetch(`${API_URL}/villagers`);
-    const data = await response.json();
+  const fetchVillagers = async () => {
+    try {
+      const response = await fetch(`${API_URL}/villagers`);
+      const data = await response.json();
 
-    console.log('Villagers response:', data);
+      if (!response.ok || !data.success) {
+        console.error('Failed to fetch villagers:', data.message);
+        return;
+      }
 
-    if (!response.ok || !data.success) {
-      console.error('Failed to fetch villagers:', data.message);
-      return;
+      const formattedVillagers: Villager[] = data.villagers.map(
+        (villager: any) => ({
+          id: villager._id,
+          name: villager.name,
+          occupation: villager.occupation,
+          contact: villager.contact,
+        })
+      );
+
+      setVillagers(formattedVillagers);
+    } catch (error) {
+      console.error('Failed to fetch villagers:', error);
     }
+  };
 
-    const formattedVillagers: Villager[] = data.villagers.map(
-      (villager: any) => ({
-        id: villager._id,
-        name: villager.name,
-        occupation: villager.occupation,
-        contact: villager.contact,
-      })
-    );
+  useEffect(() => {
+    fetchVillagers();
+  }, []);
 
-    setVillagers(formattedVillagers);
+  // ========================================
+  // DIGITAL VILLAGE ID - FAMILIES
+  // ========================================
 
-  } catch (error) {
-    console.error('Failed to fetch villagers:', error);
-  }
-};
+  const [families, setFamilies] = useState<Family[]>([]);
 
-useEffect(() => {
-  fetchVillagers();
-}, []);
+  // FETCH ALL FAMILIES
+
+  const fetchFamilies = async (): Promise<void> => {
+    try {
+      const response = await fetch(`${API_URL}/families`);
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        console.error('Failed to fetch families:', data.message);
+        return;
+      }
+
+      const familyList =
+        data.families ||
+        (Array.isArray(data.data) ? data.data : []);
+
+      setFamilies(familyList.map(formatFamily));
+    } catch (error) {
+      console.error('Fetch families error:', error);
+    }
+  };
+
+  // LOAD FAMILIES WHEN APP STARTS
+
+  useEffect(() => {
+    fetchFamilies();
+  }, []);
+
+  // ADD / REGISTER FAMILY
+
+  const addFamily = async (family: NewFamily): Promise<Family | null> => {
+    try {
+      setIsProcessing(true);
+      setProcessMessage('Registering family...');
+
+      const response = await fetch(`${API_URL}/families`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(family),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        alert(data.message || 'Failed to register family');
+        return null;
+      }
+
+      const savedFamily = formatFamily(
+        data.family || data.data
+      );
+
+      setFamilies((prev) => [savedFamily, ...prev]);
+
+      return savedFamily;
+    } catch (error) {
+      console.error('Add family error:', error);
+      alert('Failed to register family. Please check your server.');
+      return null;
+    } finally {
+      setIsProcessing(false);
+      setProcessMessage('');
+    }
+  };
+
+  // GET ONE FAMILY
+
+  const getFamilyById = async (id: string): Promise<Family | null> => {
+    try {
+      const response = await fetch(`${API_URL}/families/${id}`);
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        console.error('Failed to get family:', data.message);
+        return null;
+      }
+
+      return formatFamily(data.family || data.data);
+    } catch (error) {
+      console.error('Get family error:', error);
+      return null;
+    }
+  };
+
+  // UPDATE FAMILY
+
+  const updateFamily = async (
+    id: string,
+    family: Partial<NewFamily>
+  ): Promise<boolean> => {
+    try {
+      setIsProcessing(true);
+      setProcessMessage('Updating family details...');
+
+      const response = await fetch(`${API_URL}/families/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(family),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        alert(data.message || 'Failed to update family');
+        return false;
+      }
+
+      const updatedFamily = formatFamily(
+        data.family || data.data
+      );
+
+      setFamilies((prev) =>
+        prev.map((item) =>
+          item.id === id ? updatedFamily : item
+        )
+      );
+
+      return true;
+    } catch (error) {
+      console.error('Update family error:', error);
+      alert('Failed to update family');
+      return false;
+    } finally {
+      setIsProcessing(false);
+      setProcessMessage('');
+    }
+  };
+
+  // DELETE FAMILY
+
+  const deleteFamily = async (id: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${API_URL}/families/${id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        alert(data.message || 'Failed to delete family');
+        return false;
+      }
+
+      setFamilies((prev) =>
+        prev.filter((family) => family.id !== id)
+      );
+
+      return true;
+    } catch (error) {
+      console.error('Delete family error:', error);
+      alert('Failed to delete family');
+      return false;
+    }
+  };
 
   // ========================================
   // HOME CONFIG
@@ -249,7 +467,7 @@ useEffect(() => {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
 
   // ========================================
-  // PUJAS – NOW WITH LOCALSTORAGE PERSISTENCE
+  // PUJAS
   // ========================================
 
   const [pujas, setPujas] = useState<Puja[]>(() => {
@@ -284,38 +502,45 @@ useEffect(() => {
   // ========================================
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.USER_REVIEWS, JSON.stringify(userReviews));
+    localStorage.setItem(
+      STORAGE_KEYS.USER_REVIEWS,
+      JSON.stringify(userReviews)
+    );
   }, [userReviews]);
 
   // ========================================
-  // SAVE PUJAS TO LOCALSTORAGE ON CHANGE
+  // SAVE PUJAS
   // ========================================
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PUJAS, JSON.stringify(pujas));
+    localStorage.setItem(
+      STORAGE_KEYS.PUJAS,
+      JSON.stringify(pujas)
+    );
   }, [pujas]);
 
   // ========================================
-  // GALLERY – FETCH
+  // GALLERY - FETCH
   // ========================================
 
   const fetchGallery = async () => {
     try {
       const response = await fetch(`${API_URL}/gallery`);
       const data = await response.json();
-      console.log('Gallery response:', data);
 
       if (!response.ok || !data.success) {
         console.error('Failed to fetch gallery:', data.message);
         return;
       }
 
-      const formattedGallery: GalleryImage[] = data.gallery.map((image: any) => ({
-        id: image._id,
-        url: image.url,
-        title: image.title,
-        description: image.description,
-      }));
+      const formattedGallery: GalleryImage[] = data.gallery.map(
+        (image: any) => ({
+          id: image._id,
+          url: image.url,
+          title: image.title,
+          description: image.description,
+        })
+      );
 
       setBackendGallery(formattedGallery);
     } catch (error) {
@@ -328,14 +553,13 @@ useEffect(() => {
   }, []);
 
   // ========================================
-  // COMPLAINTS – FETCH
+  // COMPLAINTS - FETCH
   // ========================================
 
   const fetchComplaints = async () => {
     try {
       const response = await fetch(`${API_URL}/complaints`);
       const data = await response.json();
-      console.log('Complaints response:', data);
 
       if (!response.ok || !data.success) {
         console.error('Failed to fetch complaints:', data.message);
@@ -365,14 +589,13 @@ useEffect(() => {
   }, []);
 
   // ========================================
-  // PUJA – FETCH (UPDATED TO SAVE TO LOCALSTORAGE)
+  // PUJA - FETCH
   // ========================================
 
   const fetchPujas = async () => {
     try {
       const response = await fetch(`${API_URL}/puja`);
       const data = await response.json();
-      console.log('Pujas response:', data);
 
       if (!response.ok || !data.success) {
         console.error('Failed to fetch pujas:', data.message);
@@ -388,26 +611,27 @@ useEffect(() => {
       }));
 
       setPujas(formattedPujas);
-      // Save to localStorage
-      localStorage.setItem(STORAGE_KEYS.PUJAS, JSON.stringify(formattedPujas));
+
+      localStorage.setItem(
+        STORAGE_KEYS.PUJAS,
+        JSON.stringify(formattedPujas)
+      );
     } catch (error) {
       console.error('Failed to fetch pujas:', error);
     }
   };
-
-  // ========================================
-  // FETCH PUJAS WHEN APP LOADS
-  // ========================================
 
   useEffect(() => {
     fetchPujas();
   }, []);
 
   // ========================================
-  // NOTICE – ADD
+  // NOTICE - ADD
   // ========================================
 
-  const addNotice = async (notice: Omit<Notice, 'id'>): Promise<boolean> => {
+  const addNotice = async (
+    notice: Omit<Notice, 'id'>
+  ): Promise<boolean> => {
     try {
       setIsProcessing(true);
       setProcessMessage('Publishing notice...');
@@ -419,7 +643,6 @@ useEffect(() => {
       });
 
       const data = await response.json();
-      console.log('Add notice response:', data);
 
       if (!response.ok || !data.success) {
         alert(data.message || 'Backend failed to create notice');
@@ -446,7 +669,7 @@ useEffect(() => {
   };
 
   // ========================================
-  // NOTICE – DELETE
+  // NOTICE - DELETE
   // ========================================
 
   const deleteNotice = async (id: string): Promise<boolean> => {
@@ -454,15 +677,18 @@ useEffect(() => {
       const response = await fetch(`${API_URL}/notices/${id}`, {
         method: 'DELETE',
       });
+
       const data = await response.json();
-      console.log('Delete notice response:', data);
 
       if (!response.ok || !data.success) {
         console.error('Failed to delete notice:', data);
         return false;
       }
 
-      setNotices((prev) => prev.filter((notice) => notice.id !== id));
+      setNotices((prev) =>
+        prev.filter((notice) => notice.id !== id)
+      );
+
       return true;
     } catch (error) {
       console.error('Error deleting notice:', error);
@@ -471,7 +697,7 @@ useEffect(() => {
   };
 
   // ========================================
-  // GALLERY – ADD IMAGE
+  // GALLERY - ADD IMAGE
   // ========================================
 
   const addImage = async (image: {
@@ -494,11 +720,14 @@ useEffect(() => {
       });
 
       const data = await response.json();
-      console.log('Add gallery response:', data);
 
       if (!response.ok || !data.success) {
         console.error('GALLERY BACKEND ERROR:', data);
-        alert(data.message || data.error || `Upload failed with status ${response.status}`);
+        alert(
+          data.message ||
+          data.error ||
+          `Upload failed with status ${response.status}`
+        );
         return false;
       }
 
@@ -509,7 +738,11 @@ useEffect(() => {
         description: data.gallery.description,
       };
 
-      setBackendGallery((prev) => [newGalleryImage, ...prev]);
+      setBackendGallery((prev) => [
+        newGalleryImage,
+        ...prev,
+      ]);
+
       return true;
     } catch (error) {
       console.error('Add gallery image error:', error);
@@ -522,11 +755,14 @@ useEffect(() => {
   };
 
   // ========================================
-  // GALLERY – DELETE IMAGE
+  // GALLERY - DELETE IMAGE
   // ========================================
 
   const deleteImage = async (id: string): Promise<void> => {
-    const isLocalImage = fixedGallery.some((image) => image.id === id);
+    const isLocalImage = fixedGallery.some(
+      (image) => image.id === id
+    );
+
     if (isLocalImage) {
       alert('This is a local gallery image and cannot be deleted.');
       return;
@@ -536,6 +772,7 @@ useEffect(() => {
       const response = await fetch(`${API_URL}/gallery/${id}`, {
         method: 'DELETE',
       });
+
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -543,7 +780,9 @@ useEffect(() => {
         return;
       }
 
-      setBackendGallery((prev) => prev.filter((image) => image.id !== id));
+      setBackendGallery((prev) =>
+        prev.filter((image) => image.id !== id)
+      );
     } catch (error) {
       console.error('Delete gallery error:', error);
       alert('Failed to delete gallery image');
@@ -551,7 +790,7 @@ useEffect(() => {
   };
 
   // ========================================
-  // REVIEWS – ADD & DELETE
+  // REVIEWS - ADD & DELETE
   // ========================================
 
   const addReview = (review: Omit<Review, 'id'>) => {
@@ -562,11 +801,13 @@ useEffect(() => {
   };
 
   const deleteReview = (id: string) => {
-    setUserReviews((prev) => prev.filter((review) => review.id !== id));
+    setUserReviews((prev) =>
+      prev.filter((review) => review.id !== id)
+    );
   };
 
   // ========================================
-  // COMPLAINTS – ADD
+  // COMPLAINTS - ADD
   // ========================================
 
   const addComplaint = async (
@@ -615,7 +856,7 @@ useEffect(() => {
   };
 
   // ========================================
-  // COMPLAINTS – DELETE
+  // COMPLAINTS - DELETE
   // ========================================
 
   const deleteComplaint = async (id: string): Promise<void> => {
@@ -623,6 +864,7 @@ useEffect(() => {
       const response = await fetch(`${API_URL}/complaints/${id}`, {
         method: 'DELETE',
       });
+
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -630,7 +872,9 @@ useEffect(() => {
         return;
       }
 
-      setComplaints((prev) => prev.filter((complaint) => complaint.id !== id));
+      setComplaints((prev) =>
+        prev.filter((complaint) => complaint.id !== id)
+      );
     } catch (error) {
       console.error('Delete complaint error:', error);
       alert('Failed to delete complaint');
@@ -638,10 +882,12 @@ useEffect(() => {
   };
 
   // ========================================
-  // VILLAGERS – ADD
+  // VILLAGERS - ADD
   // ========================================
 
-  const addVillager = async (villager: Omit<Villager, 'id'>): Promise<void> => {
+  const addVillager = async (
+    villager: Omit<Villager, 'id'>
+  ): Promise<void> => {
     try {
       const response = await fetch(`${API_URL}/villagers`, {
         method: 'POST',
@@ -671,7 +917,7 @@ useEffect(() => {
   };
 
   // ========================================
-  // VILLAGERS – DELETE
+  // VILLAGERS - DELETE
   // ========================================
 
   const deleteVillager = async (id: string): Promise<void> => {
@@ -679,6 +925,7 @@ useEffect(() => {
       const response = await fetch(`${API_URL}/villagers/${id}`, {
         method: 'DELETE',
       });
+
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -686,7 +933,9 @@ useEffect(() => {
         return;
       }
 
-      setVillagers((prev) => prev.filter((villager) => villager.id !== id));
+      setVillagers((prev) =>
+        prev.filter((villager) => villager.id !== id)
+      );
     } catch (error) {
       console.error('Delete villager error:', error);
       alert('Failed to delete villager');
@@ -694,7 +943,7 @@ useEffect(() => {
   };
 
   // ========================================
-  // PUJA – ADD (UPDATED TO PERSIST IN LOCALSTORAGE)
+  // PUJA - ADD
   // ========================================
 
   const addPuja = async (puja: NewPuja): Promise<boolean> => {
@@ -714,7 +963,6 @@ useEffect(() => {
       });
 
       const data = await response.json();
-      console.log('Add puja response:', data);
 
       if (!response.ok || !data.success) {
         console.error('Failed to add puja:', data);
@@ -730,7 +978,7 @@ useEffect(() => {
       };
 
       setPujas((prev) => [newPuja, ...prev]);
-      // localStorage update is handled by the useEffect above
+
       return true;
     } catch (error) {
       console.error('Add puja error:', error);
@@ -743,7 +991,7 @@ useEffect(() => {
   };
 
   // ========================================
-  // PUJA – DELETE (UPDATED TO PERSIST IN LOCALSTORAGE)
+  // PUJA - DELETE
   // ========================================
 
   const deletePuja = async (id: string): Promise<void> => {
@@ -751,16 +999,17 @@ useEffect(() => {
       const response = await fetch(`${API_URL}/puja/${id}`, {
         method: 'DELETE',
       });
+
       const data = await response.json();
-      console.log('Delete puja response:', data);
 
       if (!response.ok || !data.success) {
         alert(data.message || 'Failed to delete puja');
         return;
       }
 
-      setPujas((prev) => prev.filter((puja) => puja.id !== id));
-      // localStorage update is handled by the useEffect above
+      setPujas((prev) =>
+        prev.filter((puja) => puja.id !== id)
+      );
     } catch (error) {
       console.error('Delete puja error:', error);
       alert('Failed to delete puja');
@@ -783,7 +1032,7 @@ useEffect(() => {
     if (window.confirm('Delete all user-added photos and messages?')) {
       localStorage.removeItem(STORAGE_KEYS.USER_GALLERY);
       localStorage.removeItem(STORAGE_KEYS.USER_REVIEWS);
-      localStorage.removeItem(STORAGE_KEYS.PUJAS); // Also clear pujas
+      localStorage.removeItem(STORAGE_KEYS.PUJAS);
       window.location.reload();
     }
   };
@@ -802,6 +1051,14 @@ useEffect(() => {
         homeConfig,
         complaints,
         pujas,
+
+        // FAMILIES
+        families,
+        fetchFamilies,
+        addFamily,
+        getFamilyById,
+        updateFamily,
+        deleteFamily,
 
         isProcessing,
         processMessage,
@@ -834,8 +1091,10 @@ useEffect(() => {
 
 export const useApp = () => {
   const context = useContext(AppContext);
+
   if (!context) {
     throw new Error('useApp must be used within AppProvider');
   }
+
   return context;
 };

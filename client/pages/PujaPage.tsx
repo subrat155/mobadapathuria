@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   IndianRupee,
   HandCoins,
@@ -7,12 +7,28 @@ import {
   Calendar,
   ArrowLeft
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../AppContext';
 
 const PujaPage: React.FC = () => {
 
   const { pujas } = useApp();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [showCurrencyAnimation, setShowCurrencyAnimation] = useState(false);
+
+  useEffect(() => {
+    const navigationState = location.state as { playCurrencyAnimation?: boolean } | null;
+    if (!navigationState?.playCurrencyAnimation) return;
+
+    setShowCurrencyAnimation(true);
+    const animationTimeout = window.setTimeout(() => {
+      setShowCurrencyAnimation(false);
+      navigate(location.pathname, { replace: true, state: null });
+    }, 6500);
+
+    return () => window.clearTimeout(animationTimeout);
+  }, [location.key, location.pathname, location.state, navigate]);
 
   const totalAmount = pujas.reduce(
     (total, puja) => total + Number(puja.amount || 0),
@@ -20,9 +36,20 @@ const PujaPage: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-[#F9F8F4] py-10">
+    <div className="relative min-h-screen overflow-hidden py-10">
+      {showCurrencyAnimation && (
+        <div className="puja-currency-rain" aria-hidden="true">
+          {Array.from({ length: 8 }, (_, index) => (
+            <div key={index} className={`puja-note puja-note-${index + 1}`}>
+              <span className="puja-note-top">VILLAGE COMMUNITY</span>
+              <span className="puja-note-value">₹500</span>
+              <span className="puja-note-bottom">FIVE HUNDRED</span>
+            </div>
+          ))}
+        </div>
+      )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* HEADER */}
         <div className="mb-8">

@@ -234,7 +234,8 @@ const HomePage: React.FC = () => {
 
     {/* POPULATION */}
     <div
-      className="bg-white p-8 rounded-3xl shadow-xl shadow-black/5 border border-[#88AB8E]/10 flex flex-col items-center text-center group hover:scale-[1.02] transition-transform"
+      style={{ backgroundColor: '#F1F8E9' }}
+      className="p-8 rounded-3xl shadow-xl shadow-black/5 border border-[#88AB8E]/10 flex flex-col items-center text-center group hover:scale-[1.02] transition-transform"
     >
       <div className="p-3 bg-[#88AB8E]/10 rounded-2xl mb-4 group-hover:scale-110 transition-transform">
         <Users className="text-[#88AB8E]" />
@@ -256,7 +257,8 @@ const HomePage: React.FC = () => {
 
     {/* ACTIVE NOTICES */}
     <div
-      className="bg-white p-8 rounded-3xl shadow-xl shadow-black/5 border border-[#88AB8E]/10 flex flex-col items-center text-center group hover:scale-[1.02] transition-transform"
+      style={{ backgroundColor: '#F1F8E9' }}
+      className="p-8 rounded-3xl shadow-xl shadow-black/5 border border-[#88AB8E]/10 flex flex-col items-center text-center group hover:scale-[1.02] transition-transform"
     >
       <div className="p-3 bg-[#88AB8E]/10 rounded-2xl mb-4 group-hover:scale-110 transition-transform">
         <Info className="text-[#88AB8E]" />
@@ -278,7 +280,8 @@ const HomePage: React.FC = () => {
 
     {/* PUJA CONTRIBUTIONS */}
     <div
-      className="bg-white p-8 rounded-3xl shadow-xl shadow-black/5 border border-[#88AB8E]/10 flex flex-col items-center text-center group hover:scale-[1.02] transition-transform"
+      style={{ backgroundColor: '#F1F8E9' }}
+      className="p-8 rounded-3xl shadow-xl shadow-black/5 border border-[#88AB8E]/10 flex flex-col items-center text-center group hover:scale-[1.02] transition-transform"
     >
       <div className="p-3 bg-[#88AB8E]/10 rounded-2xl mb-4 group-hover:scale-110 transition-transform">
         <HandCoins className="text-[#88AB8E]" />
@@ -299,6 +302,7 @@ const HomePage: React.FC = () => {
       {/* VIEW MORE INSIDE 3RD CARD */}
       <Link
         to="/puja"
+        state={{ playCurrencyAnimation: true }}
         className="mt-6 bg-[#88AB8E] hover:bg-[#6B8A7A] text-white px-6 py-3 rounded-full font-bold flex items-center gap-2 shadow-lg shadow-[#88AB8E]/20 transition-all hover:scale-105"
       >
         View Contributions
@@ -717,6 +721,7 @@ const HomePage: React.FC = () => {
 
             <Link
         to="/puja"
+        state={{ playCurrencyAnimation: true }}
         className="mt-6 bg-[#88AB8E] hover:bg-[#6B8A7A] text-white px-6 py-3 rounded-full font-bold flex items-center gap-2 shadow-lg shadow-[#88AB8E]/20 transition-all hover:scale-105"
       >
         View More contributions

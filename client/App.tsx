@@ -28,6 +28,7 @@ import GalleryPage from './pages/GalleryPage';
 import ContactPage from './pages/ContactPage';
 import ComplaintPage from './pages/ComplaintPage';
 import AdminPage from './pages/AdminPage';
+import VillageBackdrop from './components/VillageBackdrop';
 
 // Component to scroll to top on route change
 const ScrollToTop = () => {
@@ -191,15 +192,15 @@ const Footer = () => {
   );
 };
 
-const App: React.FC = () => {
+const AppShell: React.FC = () => {
+  const location = useLocation();
+  const isAdmin = location.pathname === '/admin';
+
   return (
-    <AppProvider>
-      <Router>
-        <ScrollToTop />
-        <InitialRedirect />
-        <div className="min-h-screen flex flex-col">
-          <Navbar />
-          <main className="flex-grow pt-16">
+        <div className="relative isolate min-h-screen flex flex-col">
+          {!isAdmin && <VillageBackdrop />}
+          {!isAdmin && <Navbar />}
+          <main className={`relative z-10 flex-grow ${isAdmin ? '' : 'pt-16'}`}>
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/notices" element={<NoticesPage />} />
@@ -212,9 +213,9 @@ const App: React.FC = () => {
               <Route path="/admin" element={<AdminPage />} />
             </Routes>
           </main>
-          <Footer />
+          {!isAdmin && <div className="relative z-10"><Footer /></div>}
           
-          <a 
+          {!isAdmin && <a
             href="https://chat.whatsapp.com/Kw4Xt2UWmtWGYIH6iHbwqL"
             target="_blank"
             rel="noopener noreferrer"
@@ -226,8 +227,18 @@ const App: React.FC = () => {
               className="w-7 h-7 object-contain group-hover:scale-110 transition-transform"
             />
             <span className="hidden sm:inline">Join WhatsApp</span>
-          </a>
+          </a>}
         </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <AppProvider>
+      <Router>
+        <ScrollToTop />
+        <InitialRedirect />
+        <AppShell />
       </Router>
     </AppProvider>
   );
