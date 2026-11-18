@@ -158,7 +158,8 @@ const STORAGE_KEYS = {
 // BACKEND API URL
 // ========================================
 
-const API_URL = 'http://localhost:5000/api';
+// const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://badapathuria-backend.onrender.com/api';
 
 // ========================================
 // FAMILY RESPONSE FORMATTER
