@@ -54,6 +54,26 @@ const HomePage: React.FC = () => {
     pujas
   } = useApp();
 
+  const heroImageSources = [
+    homeConfig.heroImageUrl,
+    '/vil5.jpg',
+    '/vil2.jpg',
+    '/vil12.jpg'
+  ];
+  const [activeHeroImage, setActiveHeroImage] = React.useState(0);
+
+  React.useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setActiveHeroImage((current) => (current + 1) % heroImageSources.length);
+    }, 3000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
   const recentNotices = [...notices]
     .sort(
       (a, b) =>
@@ -61,6 +81,35 @@ const HomePage: React.FC = () => {
         new Date(a.date).getTime()
     )
     .slice(0, 5);
+
+  const snapshotImages = gallery.slice(0, 6);
+  const renderSnapshotCards = (isDuplicate = false) =>
+    snapshotImages.map((img) => (
+      <Link
+        key={`${isDuplicate ? 'duplicate-' : ''}${img.id}`}
+        to="/gallery"
+        tabIndex={isDuplicate ? -1 : undefined}
+        className="snapshots-card snap-center group flex flex-col bg-white rounded-[32px] overflow-hidden shadow-lg border border-[#88AB8E]/10 hover:scale-[1.02] transition-transform"
+      >
+        <div className="snapshots-image overflow-hidden">
+          <img
+            src={img.url}
+            alt={img.title}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+          />
+        </div>
+
+        <div className="p-5">
+          <h5 className="font-bold text-black group-hover:text-[#88AB8E] transition-colors line-clamp-1">
+            {img.title}
+          </h5>
+
+          <p className="text-[10px] md:text-xs text-black/50 line-clamp-2 mt-1">
+            {img.description}
+          </p>
+        </div>
+      </Link>
+    ));
 
   const PIE_COLORS = [
     COLORS.primary,
@@ -175,11 +224,15 @@ const HomePage: React.FC = () => {
 
       <section className="relative min-h-[500px] md:h-[600px] overflow-hidden flex items-center">
 
-        <img
-          src={homeConfig.heroImageUrl}
-          alt="Badapathuria Village"
-          className="absolute inset-0 w-full h-full object-cover filter brightness-[0.7] contrast-[1.1]"
-        />
+        {heroImageSources.map((image, index) => (
+          <img
+            key={`${index}-${image}`}
+            src={image}
+            alt={index === 0 ? "Badapathuria Village" : "Village scenery"}
+            aria-hidden={index !== activeHeroImage}
+            className={`hero-backdrop${index === activeHeroImage ? ' hero-backdrop-active' : ''}`}
+          />
+        ))}
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
 
@@ -998,42 +1051,15 @@ const HomePage: React.FC = () => {
 
         </div>
 
-        <div className="flex gap-6 overflow-x-auto pb-8 custom-scrollbar scroll-smooth snap-x snap-mandatory">
-
-          {gallery.slice(0, 6).map((img) => (
-
-            <Link
-              key={img.id}
-              to="/gallery"
-              className="min-w-[280px] md:min-w-[350px] snap-center group flex flex-col bg-white rounded-[32px] overflow-hidden shadow-lg border border-[#88AB8E]/10 hover:scale-[1.02] transition-transform"
-            >
-
-              <div className="aspect-video overflow-hidden">
-
-                <img
-                  src={img.url}
-                  alt={img.title}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                />
-
-              </div>
-
-              <div className="p-5">
-
-                <h5 className="font-bold text-black group-hover:text-[#88AB8E] transition-colors line-clamp-1">
-                  {img.title}
-                </h5>
-
-                <p className="text-[10px] md:text-xs text-black/50 line-clamp-2 mt-1">
-                  {img.description}
-                </p>
-
-              </div>
-
-            </Link>
-
-          ))}
-
+        <div className="snapshots-marquee pb-8">
+          <div className="snapshots-track">
+            <div className="snapshots-group">
+              {renderSnapshotCards()}
+            </div>
+            <div className="snapshots-group snapshots-duplicate" aria-hidden="true">
+              {renderSnapshotCards(true)}
+            </div>
+          </div>
         </div>
 
       </section>
